@@ -469,7 +469,7 @@ public class OpenStreetMaps {
     private void assoiateWithChunk(Coord c, Edge edge) {
         Set<Edge> list = chunks.get(c);
         if (list == null) {
-            list = new HashSet<Edge>();
+            list = new HashSet<>();
             chunks.put(c, list);
         }
         list.add(edge);

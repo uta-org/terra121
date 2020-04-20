@@ -34,7 +34,7 @@ public class RoadGenerator implements ICubicPopulator, Comparable<Object>
     private Heights heights;
     private GeographicProjection projection;
 
-    private static Set<CubePos> roadChunks = new HashSet<>();
+    private static final Set<CubePos> roadChunks = new HashSet<>();
 
     // only use for roads with markings
     public double calculateRoadWidth(int w, int l) {

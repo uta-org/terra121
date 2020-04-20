@@ -114,43 +114,19 @@ public class EarthTerrainProcessor extends BasicCubeGenerator {
     public CubePrimer generateCube(int cubeX, int cubeY, int cubeZ) {
         CubePrimer primer = new CubePrimer();
 
-        double heightarr[][] = new double[16][16];
-        boolean surface = false;
+        HeightmapModel model = doSurface(cubeX, cubeY, cubeZ);
+        double[][] map = model.getHeightmap();
+        boolean surface = model.getSurface();
 
-        int spawnSize = TerraConfig.spawnSize;
-        
-       //null island
-    	if(-spawnSize < cubeX && cubeX < spawnSize && -spawnSize < cubeZ && cubeZ < spawnSize) {
-    		for(int x=0; x<16; x++)
-                for(int z=0; z<16; z++)
-                	heightarr[x][z] = 1;
-    	} else {
-        
-	        //get heights before hand
-	        for(int x=0; x<16; x++) {
-	            for(int z=0; z<16; z++) {
-	            	
-	            	double[] projected = projection.toGeo((cubeX*16 + x), (cubeZ*16 + z));
-	                double Y = heights.estimateLocal(projected[0], projected[1]);
-	                heightarr[x][z] = Y;
-	                
-	                if(Coords.cubeToMinBlock(cubeY)<Y && Coords.cubeToMinBlock(cubeY)+16>Y) {
-	                    surface = true;
-	                }
-	            }
-	        }
-    	}
-
-    	if(TerraConfig.useHeightmapModels) {
+        if(TerraConfig.useHeightmapModels) {
             CubePos pos = new CubePos(cubeX, cubeY, cubeZ);
-            HeightmapModel model = new HeightmapModel(surface, heightarr);
             HeightmapModel.add(pos, model);
     	}
 
     	//fill in the world
         for(int x=0; x<16; x++) {
             for(int z=0; z<16; z++) {
-            	double Y = heightarr[x][z];      	
+            	double Y = isSpawn(cubeX, cubeZ) ? 1 : map[x][z];
             	
             	double[] projected = projection.toGeo((cubeX*16 + x), (cubeZ*16 + z));
             	double wateroff = 0;
@@ -174,12 +150,12 @@ public class EarthTerrainProcessor extends BasicCubeGenerator {
                 //estimate slopes
                 double dx, dz;
                 if(x == 16-1)
-                    dx = heightarr[x][z]-heightarr[x-1][z];
-                else dx = heightarr[x+1][z]-heightarr[x][z];
+                    dx = map[x][z]-map[x-1][z];
+                else dx = map[x+1][z]-map[x][z];
 
                 if(z == 16-1)
-                    dz = heightarr[x][z]-heightarr[x][z-1];
-                else dz = heightarr[x][z+1]-heightarr[x][z];
+                    dz = map[x][z]-map[x][z-1];
+                else dz = map[x][z+1]-map[x][z];
 
                 //get biome (thanks to 	z3nth10n for spoting this one)
                 List<IBiomeBlockReplacer> reps = biomeBlockReplacers.get(biomes.getBiome(new BlockPos(cubeX*16 + x, 0, cubeZ*16 + z)));
@@ -218,6 +194,45 @@ public class EarthTerrainProcessor extends BasicCubeGenerator {
         caveGenerator.generate(world, primer, new CubePos(cubeX, cubeY, cubeZ));
 
         //spawn roads
+        doRoads(cubeX, cubeY, cubeZ, primer, map, surface);
+
+        return primer;
+    }
+
+    private HeightmapModel doSurface(int cubeX, int cubeY, int cubeZ) {
+        HeightmapModel model = new HeightmapModel();
+        boolean surface = false;
+        double[][] map = new double[16][16];
+
+        //get heights before hand
+        for(int x=0; x<16; x++) {
+            for(int z=0; z<16; z++) {
+                double[] projected = projection.toGeo((cubeX*16 + x), (cubeZ*16 + z));
+                double Y = heights.estimateLocal(projected[0], projected[1]);
+                map[x][z] = Y;
+
+                // z3nth10n: As I don't fully understand what's going on here I'll keep the original code
+                if(isSurface(cubeY, Y))
+                    surface = true;
+            }
+        }
+
+        model.setHeightmap(map);
+        model.setSurface(surface);
+
+        return model;
+    }
+
+    private boolean isSurface(int cubeY, double Y) {
+        return Coords.cubeToMinBlock(cubeY) < Y && Coords.cubeToMinBlock(cubeY)+16 > Y;
+    }
+
+    private boolean isSpawn(int cubeX, int cubeZ) {
+        int spawnSize = TerraConfig.spawnSize;
+        return -spawnSize < cubeX && cubeX < spawnSize && -spawnSize < cubeZ && cubeZ < spawnSize;
+    }
+
+    private void doRoads(int cubeX, int cubeY, int cubeZ, CubePrimer primer, double[][] heightarr, boolean surface) {
         if((doRoads || doBuildings || cfg.settings.osmwater) && surface) {
             Set<OpenStreetMaps.Edge> edges = osm.chunkStructures(cubeX, cubeZ);
 
@@ -273,7 +288,7 @@ public class EarthTerrainProcessor extends BasicCubeGenerator {
 
                             if(y >= 0 && y < 16) {
                             	if(e.type == OpenStreetMaps.Type.STREAM) {
-                            		if(primer.getBlockState(x, y, z).getBlock()!=Blocks.WATER)
+                            		if(primer.getBlockState(x, y, z).getBlock()!= Blocks.WATER)
                             			primer.setBlockState(x, y, z, Blocks.WATER.getDefaultState());
                             	}
                             	else primer.setBlockState(x, y, z, ( e.type == OpenStreetMaps.Type.ROAD ? Blocks.GRASS_PATH : e.type == OpenStreetMaps.Type.BUILDING ? Blocks.BRICK_BLOCK : Blocks.STONEBRICK).getDefaultState());
@@ -283,8 +298,6 @@ public class EarthTerrainProcessor extends BasicCubeGenerator {
                 }
             }
         }
-
-        return primer;
     }
 
 

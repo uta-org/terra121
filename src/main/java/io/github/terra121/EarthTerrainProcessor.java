@@ -1,12 +1,6 @@
 package io.github.terra121;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 
 import io.github.opencubicchunks.cubicchunks.api.util.Coords;
 import io.github.opencubicchunks.cubicchunks.api.util.CubePos;
@@ -23,6 +17,7 @@ import io.github.opencubicchunks.cubicchunks.cubicgen.common.biome.IBiomeBlockRe
 import io.github.opencubicchunks.cubicchunks.cubicgen.common.biome.IBiomeBlockReplacerProvider;
 import io.github.opencubicchunks.cubicchunks.cubicgen.customcubic.CustomGeneratorSettings;
 import io.github.opencubicchunks.cubicchunks.cubicgen.customcubic.structure.CubicCaveGenerator;
+import io.github.terra121.dataset.HeightmapModel;
 import io.github.terra121.dataset.Heights;
 import io.github.terra121.dataset.OpenStreetMaps;
 import io.github.terra121.populator.CliffReplacer;
@@ -80,7 +75,7 @@ public class EarthTerrainProcessor extends BasicCubeGenerator {
         unnaturals.add(Blocks.CONCRETE);
         unnaturals.add(Blocks.BRICK_BLOCK);
         
-        surfacePopulators = new HashSet<ICubicPopulator>();
+        surfacePopulators = new TreeSet<>();
         if(doRoads || cfg.settings.osmwater)surfacePopulators.add(new RoadGenerator(osm, heights, projection));
         surfacePopulators.add(new EarthTreePopulator(projection));
         snow = new SnowPopulator(); //this will go after the rest
@@ -121,9 +116,11 @@ public class EarthTerrainProcessor extends BasicCubeGenerator {
 
         double heightarr[][] = new double[16][16];
         boolean surface = false;
+
+        int spawnSize = TerraConfig.spawnSize;
         
        //null island
-    	if(-5 < cubeX && cubeX < 5 && -5 < cubeZ && cubeZ < 5) {
+    	if(-spawnSize < cubeX && cubeX < spawnSize && -spawnSize < cubeZ && cubeZ < spawnSize) {
     		for(int x=0; x<16; x++)
                 for(int z=0; z<16; z++)
                 	heightarr[x][z] = 1;
@@ -144,6 +141,12 @@ public class EarthTerrainProcessor extends BasicCubeGenerator {
 	        }
     	}
 
+    	if(TerraConfig.useHeightmapModels) {
+            CubePos pos = new CubePos(cubeX, cubeY, cubeZ);
+            HeightmapModel model = new HeightmapModel(surface, heightarr);
+            HeightmapModel.add(pos, model);
+    	}
+
     	//fill in the world
         for(int x=0; x<16; x++) {
             for(int z=0; z<16; z++) {
@@ -151,7 +154,8 @@ public class EarthTerrainProcessor extends BasicCubeGenerator {
             	
             	double[] projected = projection.toGeo((cubeX*16 + x), (cubeZ*16 + z));
             	double wateroff = 0;
-            	if(cfg.settings.osmwater)wateroff = osm.water.estimateLocal(projected[0], projected[1]);
+            	if(cfg.settings.osmwater)
+            	    wateroff = osm.water.estimateLocal(projected[0], projected[1]);
             	
             	//ocean?
             	if(-0.001 < Y && Y < 0.001) {

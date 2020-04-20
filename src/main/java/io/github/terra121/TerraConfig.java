@@ -49,6 +49,18 @@ public class TerraConfig {
 			"Highly expiremental, use at your own risk"})
 	public static boolean threeWater = false;
 
+	@Name("use_road_cache")
+	@Comment({"Road cache is enabled? This feature can be used on other mods."})
+	public static boolean useRoadCache = false;
+
+	@Name("use_heightmap_model")
+	@Comment({"Store generated heightmaps from OSM? This feature can be used on other mods."})
+	public static boolean useHeightmapModels = false;
+
+	@Name("spawn_size")
+	@Comment({"Default spawn size."})
+	public static int spawnSize = 5;
+
 	@SubscribeEvent
 	public static void onConfigChanged(ConfigChangedEvent.OnConfigChangedEvent event) {
 		if(TerraMod.MODID.equals(event.getModID()))

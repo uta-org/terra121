@@ -1,12 +1,12 @@
 package io.github.terra121.dataset;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringWriter;
-import java.net.URL;
-import java.net.URLConnection;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -16,8 +16,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import io.github.terra121.EarthTerrainProcessor;
 import io.github.terra121.PlayerRegionDispatcher;
+import io.github.terra121.utils.Path;
 import net.minecraft.client.Minecraft;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
 
 import com.google.gson.Gson;
@@ -132,7 +138,7 @@ public class OpenStreetMaps {
         if ((region = regions.get(coord)) == null) {
             region = new Region(coord, water);
             int i;
-            for (i = 0; i < 5 && !regiondownload(region); i++) ;
+            for (i = 0; i < 5 && !regionDownload(region); i++) ;
             regions.put(coord, region);
             if (regions.size() > numcache) {
                 //TODO: delete beter
@@ -183,7 +189,16 @@ public class OpenStreetMaps {
         PlayerRegionDispatcher.processedSet.add(new int[] {x, z});
     }
 
-    public boolean regiondownload(Region region) {
+    private String getMD5(String str)
+            throws NoSuchAlgorithmException {
+        byte[] bytesOfMessage = str.getBytes(StandardCharsets.UTF_8);
+
+        MessageDigest md = MessageDigest.getInstance("MD5");
+        byte[] dig = md.digest(bytesOfMessage);
+        return new String(Hex.encodeHex(dig));
+    }
+
+    public boolean regionDownload(Region region) {
         double X = region.coord.x * TILE_SIZE;
         double Y = region.coord.y * TILE_SIZE;
 
@@ -193,30 +208,46 @@ public class OpenStreetMaps {
             return false;
         }
 
-        File f = new File(Minecraft.getMinecraft().mcDataDir, "geo-data");
-
         try {
             String bottomleft = Y + "," + X;
             String bbox = bottomleft + "," + (Y + TILE_SIZE) + "," + (X + TILE_SIZE);
 
-            String urltext = URL_PREFACE + bbox + URL_A + bbox + URL_B;
-            if (doWater) urltext += URL_C + bottomleft + URL_SUFFIX;
+            String url = URL_PREFACE + bbox + URL_A + bbox + URL_B;
+            if (doWater) url += URL_C + bottomleft + URL_SUFFIX;
 
-            TerraMod.LOGGER.info(urltext);
+            Path filepath = Paths.get(Minecraft.getMinecraft().mcDataDir.toString(),
+                    "geo-data",
+                    EarthTerrainProcessor.worldObj.getProviderName(),
+                    getMD5(url) + ".json");
 
-            //kumi systems request a meaningful user-agent
-            URL url = new URL(urltext);
-            URLConnection c = url.openConnection();
-            c.addRequestProperty("User-Agent", TerraMod.USERAGENT);
-            InputStream is = c.getInputStream();
+            Files.createDirectories(filepath.getParent());
+            
+            TerraMod.LOGGER.info(url);
 
-            doGson(is, region);
+            String json;
+            File file = filepath.toFile();
+            if(file.exists()) {
+                json = new String(Files.readAllBytes(filepath), StandardCharsets.UTF_8);
+            } else {
+                OkHttpClient client = new OkHttpClient();
+                Request request = new Request.Builder()
+                        .url(url)
+                        .build();
 
-            is.close();
+                try (Response response = client.newCall(request).execute()) {
+                    //noinspection ConstantConditions
+                    json = response.body().string();
+                } catch(IOException e) {
+                    TerraMod.LOGGER.error("Osm region failed on okhttp request", e);
+                    return false;
+                }
 
+                Files.write(filepath, json.getBytes(StandardCharsets.UTF_8));
+            }
+
+            doGson(json, region);
         } catch (Exception e) {
-            TerraMod.LOGGER.error("Osm region download failed, no osm features will spawn, " + e);
-            e.printStackTrace();
+            TerraMod.LOGGER.error("Osm region download failed, no osm features will spawn", e);
             return false;
         }
 
@@ -238,13 +269,8 @@ public class OpenStreetMaps {
         return true;
     }
 
-    private void doGson(InputStream is, Region region) throws IOException {
-
-        StringWriter writer = new StringWriter();
-        IOUtils.copy(is, writer, StandardCharsets.UTF_8);
-        String str = writer.toString();
-
-        Data data = gson.fromJson(str.toString(), Data.class);
+    private void doGson(String str, Region region) {
+        Data data = gson.fromJson(str, Data.class);
 
         Map<Long, Element> allWays = new HashMap<Long, Element>();
         Set<Element> unusedWays = new HashSet<Element>();

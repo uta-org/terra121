@@ -39,6 +39,7 @@ import net.minecraftforge.fml.common.registry.ForgeRegistries;
 public class EarthTerrainProcessor extends BasicCubeGenerator
 {
     public static OpenStreetMaps osm;
+    public static World worldObj;
 
     public Heights heights;
     public Heights depths;
@@ -58,6 +59,8 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
 
     public EarthTerrainProcessor(World world) {
         super(world);
+
+        worldObj = world;
 
         cfg = new EarthGeneratorSettings(world.getWorldInfo().getGeneratorOptions());
     	projection = cfg.getProjection();

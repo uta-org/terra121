@@ -53,6 +53,8 @@ minecraft {
 }
 
 dependencies {
+    implementation 'com.squareup.okhttp3:okhttp:3.14.6'
+
     // you may put jars on which you depend on in ./libs
     // or you may define them like so..
     //compile "some.group:artifact:version:classifier"

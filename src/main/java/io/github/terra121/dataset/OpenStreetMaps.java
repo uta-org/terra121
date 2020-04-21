@@ -18,7 +18,6 @@ import java.util.Set;
 
 import io.github.terra121.EarthTerrainProcessor;
 import io.github.terra121.PlayerRegionDispatcher;
-import net.minecraft.client.Minecraft;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -213,7 +212,7 @@ public class OpenStreetMaps {
             String url = URL_PREFACE + bbox + URL_A + bbox + URL_B;
             if (doWater) url += URL_C + bottomleft + URL_SUFFIX;
 
-            Path filepath = Paths.get(Minecraft.getMinecraft().mcDataDir.toString(),
+            Path filepath = Paths.get(TerraMod.minecraftDir,
                     "geo-data",
                     EarthTerrainProcessor.worldObj.getProviderName(),
                     getMD5(url) + ".json");

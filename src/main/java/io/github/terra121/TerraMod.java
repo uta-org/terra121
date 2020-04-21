@@ -32,11 +32,15 @@ public class TerraMod implements ILetsEncryptMod
 
     public static Logger LOGGER;
 
+    public static String minecraftDir;
+
     @EventHandler
     public void preInit(FMLPreInitializationEvent event)
     {
         LOGGER = event.getModLog();
         EarthWorldType.create();
+
+        minecraftDir = event.getModConfigurationDirectory().getParent();
         
         if(CUSTOM_PROVIDER) {
 	        setupProvider();

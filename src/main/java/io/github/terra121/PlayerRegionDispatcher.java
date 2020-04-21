@@ -33,67 +33,64 @@ public class PlayerRegionDispatcher {
     private static final DispatcherRunnable runnable;
     private static final Thread dispatcherThread;
 
+    /**
+     * Start the static context for this class.
+     */
     static {
         runnable = new DispatcherRunnable();
         dispatcherThread = new Thread(runnable, "t121_dispatcher");
         dispatcherThread.start();
     }
 
-//    public interface IAction<T1, T2> {
-//        void execute(T1 t1, T2 t2);
-//    }
-
     public static class DispatcherRunnable implements Runnable {
         private final BlockingQueue<Optional<int[]>> unprocessedRegions = new LinkedBlockingQueue<>();
-        // private IAction<int[], Set<OpenStreetMaps.Edge>> callback;
 
-        // private final Set<int[]> processingRegions = Sets.newConcurrentHashSet();
-
-//        private DispatcherRunnable() {}
-//
-//        public DispatcherRunnable(IAction<int[], Set<OpenStreetMaps.Edge>> callback) {
-//            this.callback = callback;
-//        }
-
+        /**
+         * Runs the runnable.
+         */
         @Override
         public void run() {
             try {
                 //noinspection StatementWithEmptyBody
-                while (tick()) {}
+                while (tick()) {
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 Thread.currentThread().interrupt();
             }
         }
 
+        /**
+         * Processes the queued regions.
+         * @return
+         * @throws InterruptedException
+         */
         public boolean tick()
-                throws InterruptedException
-        {
-            //if (unprocessedRegions.size() > 0) {
+                throws InterruptedException {
             Optional<int[]> curRegion = unprocessedRegions.take();
-            if(!curRegion.isPresent()) {
+            if (!curRegion.isPresent()) {
                 return false;
             }
 
-            //processingRegions.add(curRegion);
-            {
-                int[] localReg = curRegion.get();
-                Set<OpenStreetMaps.Edge> set = EarthTerrainProcessor.osm.chunkStructures(localReg[0], localReg[1]);
-                mappedEdges.put(localReg, set);
-            }
-            //processingRegions.remove(curRegion);
-            //}
-
-            // do sleep?
-            //sleep(50);
+            int[] localReg = curRegion.get();
+            Set<OpenStreetMaps.Edge> set = EarthTerrainProcessor.osm.chunkStructures(localReg[0], localReg[1]);
+            mappedEdges.put(localReg, set);
 
             return true;
         }
 
+        /**
+         * Add region to the current runnable.
+         * @param cubeX
+         * @param cubeZ
+         */
         public void addRegion(int cubeX, int cubeZ) {
             unprocessedRegions.add(Optional.of(toGeo(cubeX, cubeZ)));
         }
 
+        /**
+         * Stops the current runnable.
+         */
         public void stop() {
             try {
                 unprocessedRegions.put(Optional.empty());
@@ -101,15 +98,11 @@ public class PlayerRegionDispatcher {
                 e.printStackTrace();
             }
         }
-
-//        public boolean isProcessing() {
-//            return false;
-//        }
     }
 
     /**
      * Get called on every entity update.
-     *
+     * Checks if the player moved on a new chunk to pre-generate the current region (32x32).
      * @param e
      */
     @SubscribeEvent
@@ -129,15 +122,14 @@ public class PlayerRegionDispatcher {
             // boolean forceGenerating = latestPos == null;
 
             if (pos != lPos) {
-                // !isGenerated(pos.getX(), pos.getZ())
                 // TODO
 //                int diffX = pos.getX() - (lPos == null ? 0 : lPos.getX());
 //                int diffZ = pos.getZ() - (lPos == null ? 0 : lPos.getZ());
 
                 for (int x = -16; x < 16; ++x) {
-                    for(int z = -16; z < 16; ++z) {
+                    for (int z = -16; z < 16; ++z) {
                         int cx = pos.getX() + x, cz = pos.getZ() + z;
-                        if(isGenerated(cx, cz)) continue;
+                        if (isGenerated(cx, cz)) continue;
                         runnable.addRegion(cx, cz);
                     }
                 }
@@ -147,10 +139,21 @@ public class PlayerRegionDispatcher {
         }
     }
 
+    /**
+     * Trigger player logout in order to remove the latestPos key.
+     * @param e
+     */
     public static void onPlayerEvent(PlayerLoggedOutEvent e) {
         latestPos.remove(e.player.getUniqueID());
     }
 
+    /**
+     * Call this in order to obtain the generated edges.
+     * Also, this is a sync call if any cube is pre-generated before.
+     * @param cubeX
+     * @param cubeZ
+     * @return
+     */
     public static Set<OpenStreetMaps.Edge> getEdge(int cubeX, int cubeZ) {
         if (isBusy(cubeX, cubeZ)) {
             // Block sync side until dispatcher has results
@@ -178,6 +181,12 @@ public class PlayerRegionDispatcher {
         return !preprocessedSet.contains(toGeo(cubeX, cubeZ)) && !processedSet.contains(toGeo(cubeX, cubeZ));
     }
 
+    /**
+     * Check if the current cube position is generated.
+     * @param cubeX
+     * @param cubeZ
+     * @return
+     */
     public static boolean isGenerated(int cubeX, int cubeZ) {
         return processedSet.contains(toGeo(cubeX, cubeZ));
     }
@@ -191,6 +200,13 @@ public class PlayerRegionDispatcher {
         return preprocessedSet.contains(toGeo(cubeX, cubeZ));
     }
 
+    /**
+     * Convert cubeX, cubeZ to int[2]
+     * @todo Create class for this.
+     * @param x
+     * @param y
+     * @return
+     */
     private static int[] toGeo(int x, int y) {
         return new int[]{x, y};
     }

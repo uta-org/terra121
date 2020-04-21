@@ -1,5 +1,6 @@
 package io.github.terra121.dataset;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.Set;
 
 import io.github.terra121.PlayerRegionDispatcher;
+import net.minecraft.client.Minecraft;
 import org.apache.commons.io.IOUtils;
 
 import com.google.gson.Gson;
@@ -190,6 +192,8 @@ public class OpenStreetMaps {
             region.failedDownload = true;
             return false;
         }
+
+        File f = new File(Minecraft.getMinecraft().mcDataDir, "geo-data");
 
         try {
             String bottomleft = Y + "," + X;

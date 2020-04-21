@@ -44,7 +44,7 @@ public class PlayerRegionDispatcher {
 //    }
 
     public static class DispatcherRunnable implements Runnable {
-        private final BlockingQueue<int[]> unprocessedRegions = new LinkedBlockingQueue<>();
+        private final BlockingQueue<Optional<int[]>> unprocessedRegions = new LinkedBlockingQueue<>();
         // private IAction<int[], Set<OpenStreetMaps.Edge>> callback;
 
         // private final Set<int[]> processingRegions = Sets.newConcurrentHashSet();
@@ -58,10 +58,8 @@ public class PlayerRegionDispatcher {
         @Override
         public void run() {
             try {
-                //noinspection InfiniteLoopStatement
-                while (true) {
-                    tick();
-                }
+                //noinspection StatementWithEmptyBody
+                while (tick()) {}
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 Thread.currentThread().interrupt();
@@ -72,16 +70,16 @@ public class PlayerRegionDispatcher {
                 throws InterruptedException
         {
             //if (unprocessedRegions.size() > 0) {
-            int[] curRegion = unprocessedRegions.take();
-            //noinspection ConstantConditions
-            if(curRegion == null) {
+            Optional<int[]> curRegion = unprocessedRegions.take();
+            if(!curRegion.isPresent()) {
                 return false;
             }
 
             //processingRegions.add(curRegion);
             {
-                Set<OpenStreetMaps.Edge> set = EarthTerrainProcessor.osm.chunkStructures(curRegion[0], curRegion[1]);
-                mappedEdges.put(curRegion, set);
+                int[] localReg = curRegion.get();
+                Set<OpenStreetMaps.Edge> set = EarthTerrainProcessor.osm.chunkStructures(localReg[0], localReg[1]);
+                mappedEdges.put(localReg, set);
             }
             //processingRegions.remove(curRegion);
             //}
@@ -93,13 +91,12 @@ public class PlayerRegionDispatcher {
         }
 
         public void addRegion(int cubeX, int cubeZ) {
-            unprocessedRegions.add(toGeo(cubeX, cubeZ));
+            unprocessedRegions.add(Optional.of(toGeo(cubeX, cubeZ)));
         }
 
         public void stop() {
             try {
-                //noinspection ConstantConditions
-                unprocessedRegions.put(null);
+                unprocessedRegions.put(Optional.empty());
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

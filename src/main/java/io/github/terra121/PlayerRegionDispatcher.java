@@ -3,10 +3,8 @@ package io.github.terra121;
 import io.github.opencubicchunks.cubicchunks.api.util.CubePos;
 import io.github.terra121.dataset.OpenStreetMaps;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.PlayerEvent;
 
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
@@ -14,8 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static java.lang.Thread.sleep;
-import static net.minecraftforge.event.entity.living.LivingEvent.*;
-import static net.minecraftforge.fml.common.gameevent.PlayerEvent.*;
+import static net.minecraftforge.event.entity.living.LivingEvent.LivingUpdateEvent;
+import static net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerLoggedOutEvent;
 
 /**
  * A class that loads the entire region depending on the current player position.

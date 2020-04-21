@@ -18,13 +18,11 @@ import java.util.Set;
 
 import io.github.terra121.EarthTerrainProcessor;
 import io.github.terra121.PlayerRegionDispatcher;
-import io.github.terra121.utils.Path;
 import net.minecraft.client.Minecraft;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.io.IOUtils;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -221,7 +219,7 @@ public class OpenStreetMaps {
                     getMD5(url) + ".json");
 
             Files.createDirectories(filepath.getParent());
-            
+
             TerraMod.LOGGER.info(url);
 
             String json;

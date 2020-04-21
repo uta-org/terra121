@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import io.github.terra121.PlayerRegionDispatcher;
 import org.apache.commons.io.IOUtils;
 
 import com.google.gson.Gson;
@@ -115,10 +116,13 @@ public class OpenStreetMaps {
     }
 
     public Region regionCache(double[] corner) {
+        preregisterRegion(corner);
 
         //bound check
-        if(!(corner[0]>=-180 && corner[0]<=180 && corner[1]>=-80 && corner[1]<=80))
+        if(!(corner[0]>=-180 && corner[0]<=180 && corner[1]>=-80 && corner[1]<=80)) {
+            removePreRegion(corner);
             return null;
+        }
 
         Coord coord = getRegion(corner[0], corner[1]);
         Region region;
@@ -139,10 +143,42 @@ public class OpenStreetMaps {
             if (i == 5) {
                 region.failedDownload = true;
                 TerraMod.LOGGER.error("OSM region" + region.coord.x + " " + region.coord.y + " failed to download several times, no structures will spawn");
+
+                removePreRegion(corner);
                 return null;
             }
-        } else if (region.failedDownload) return null; //don't return dummy regions
+        } else if (region.failedDownload) {
+            removePreRegion(corner);
+            return null; //don't return dummy regions
+        }
+
+        registerRegion(corner);
         return region;
+    }
+
+
+    private void preregisterRegion(double[] reg) {
+        preregisterRegion((int)reg[0], (int)reg[1]);
+    }
+
+    private void removePreRegion(double[] reg) {
+        removePreRegion((int)reg[0], (int)reg[1]);
+    }
+
+    private void registerRegion(double[] reg) {
+        registerRegion((int)reg[0], (int)reg[1]);
+    }
+
+    private void preregisterRegion(int x, int z) {
+        PlayerRegionDispatcher.preprocessedSet.add(new int[] {x, z});
+    }
+
+    private void removePreRegion(int x, int z) {
+        PlayerRegionDispatcher.processedSet.remove(new int[] {x, z});
+    }
+
+    private void registerRegion(int x, int z) {
+        PlayerRegionDispatcher.processedSet.add(new int[] {x, z});
     }
 
     public boolean regiondownload(Region region) {

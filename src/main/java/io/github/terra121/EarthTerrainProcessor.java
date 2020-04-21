@@ -36,11 +36,12 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
 //import io.github.opencubicchunks.cubicchunks.api.worldgen.structure.event.InitCubicStructureGeneratorEvent;
 
-public class EarthTerrainProcessor extends BasicCubeGenerator {
+public class EarthTerrainProcessor extends BasicCubeGenerator
+{
+    public static OpenStreetMaps osm;
 
     public Heights heights;
     public Heights depths;
-    public OpenStreetMaps osm;
     public HashMap<Biome, List<IBiomeBlockReplacer>> biomeBlockReplacers;
     public BiomeProvider biomes;
     public GeographicProjection projection;
@@ -234,7 +235,9 @@ public class EarthTerrainProcessor extends BasicCubeGenerator {
 
     private void doRoads(int cubeX, int cubeY, int cubeZ, CubePrimer primer, double[][] heightarr, boolean surface) {
         if((doRoads || doBuildings || cfg.settings.osmwater) && surface) {
-            Set<OpenStreetMaps.Edge> edges = osm.chunkStructures(cubeX, cubeZ);
+            Set<OpenStreetMaps.Edge> edges = PlayerRegionDispatcher.isFree(cubeX, cubeZ)
+                    ? osm.chunkStructures(cubeX, cubeZ)
+                    : PlayerRegionDispatcher.getEdge(cubeX, cubeZ);
 
             if(edges != null) {
 

@@ -5,6 +5,10 @@ import io.github.opencubicchunks.cubicchunks.api.util.CubePos;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * A class that stores the heightmap in order to be used by other mods.
+ * @author z3nth10n
+ */
 public class HeightmapModel {
     private boolean surface;
     private double[][] heightmap;

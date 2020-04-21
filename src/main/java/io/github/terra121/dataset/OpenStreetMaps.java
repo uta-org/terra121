@@ -7,14 +7,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import io.github.terra121.EarthTerrainProcessor;
 import io.github.terra121.PlayerRegionDispatcher;
@@ -44,7 +37,7 @@ public class OpenStreetMaps {
     private String URL_SUFFIX = ");area._[~\"natural|waterway\"~\"water|riverbank\"];out%20ids;";
 
     private HashMap<Coord, Set<Edge>> chunks;
-    public LinkedHashMap<Coord, Region> regions;
+    public Map<Coord, Region> regions;
     public Water water;
 
     private int numcache = TerraConfig.osmCacheSize;
@@ -79,7 +72,7 @@ public class OpenStreetMaps {
         gson = new GsonBuilder().create();
         chunks = new LinkedHashMap<Coord, Set<Edge>>();
         allEdges = new ArrayList<Edge>();
-        regions = new LinkedHashMap<Coord, Region>();
+        regions = Collections.synchronizedMap(new LinkedHashMap<Coord, Region>());
         projection = proj;
         try {
             water = new Water(this, 256);
@@ -121,11 +114,8 @@ public class OpenStreetMaps {
     }
 
     public Region regionCache(double[] corner) {
-        preregisterRegion(corner);
-
         //bound check
         if(!(corner[0]>=-180 && corner[0]<=180 && corner[1]>=-80 && corner[1]<=80)) {
-            removePreRegion(corner);
             return null;
         }
 
@@ -133,6 +123,9 @@ public class OpenStreetMaps {
         Region region;
 
         if ((region = regions.get(coord)) == null) {
+            preregisterRegion(corner);
+            System.out.println("Region cache: "+coord);
+
             region = new Region(coord, water);
             int i;
             for (i = 0; i < 5 && !regionDownload(region); i++) ;
@@ -152,12 +145,12 @@ public class OpenStreetMaps {
                 removePreRegion(corner);
                 return null;
             }
+
+            registerRegion(corner);
         } else if (region.failedDownload) {
-            removePreRegion(corner);
             return null; //don't return dummy regions
         }
 
-        registerRegion(corner);
         return region;
     }
 
@@ -175,15 +168,15 @@ public class OpenStreetMaps {
     }
 
     private void preregisterRegion(int x, int z) {
-        PlayerRegionDispatcher.preprocessedSet.add(new int[] {x, z});
+        PlayerRegionDispatcher.addPreregion(x, z);
     }
 
     private void removePreRegion(int x, int z) {
-        PlayerRegionDispatcher.processedSet.remove(new int[] {x, z});
+        PlayerRegionDispatcher.removePreregion(x, z);
     }
 
     private void registerRegion(int x, int z) {
-        PlayerRegionDispatcher.processedSet.add(new int[] {x, z});
+        PlayerRegionDispatcher.addRegion(x, z);
     }
 
     private String getMD5(String str)
@@ -214,7 +207,7 @@ public class OpenStreetMaps {
 
             Path filepath = Paths.get(TerraMod.minecraftDir,
                     "geo-data",
-                    EarthTerrainProcessor.worldObj.getProviderName(),
+                    EarthTerrainProcessor.worldObj.getWorldInfo().getWorldName(),
                     getMD5(url) + ".json");
 
             Files.createDirectories(filepath.getParent());
@@ -235,7 +228,7 @@ public class OpenStreetMaps {
                     //noinspection ConstantConditions
                     json = response.body().string();
                 } catch(IOException e) {
-                    TerraMod.LOGGER.error("Osm region failed on okhttp request", e);
+                    TerraMod.LOGGER.error("Osm region failed on OkHttpClient request", e);
                     return false;
                 }
 
@@ -575,7 +568,7 @@ public class OpenStreetMaps {
         public int x;
         public int y;
 
-        private Coord(int x, int y) {
+        public Coord(int x, int y) {
             this.x = x;
             this.y = y;
         }

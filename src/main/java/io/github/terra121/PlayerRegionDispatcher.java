@@ -1,16 +1,15 @@
 package io.github.terra121;
 
 import io.github.opencubicchunks.cubicchunks.api.util.CubePos;
-import io.github.terra121.dataset.OpenStreetMaps;
+import io.github.terra121.utils.SetBlockingQueue;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
 
+import static io.github.terra121.dataset.OpenStreetMaps.*;
 import static java.lang.Thread.sleep;
 import static net.minecraftforge.event.entity.living.LivingEvent.LivingUpdateEvent;
 import static net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerLoggedOutEvent;
@@ -22,11 +21,11 @@ import static net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerLoggedOu
  */
 @Mod.EventBusSubscriber
 public class PlayerRegionDispatcher {
-    private static Map<UUID, CubePos> latestPos = new HashMap<>();
-    public static Set<int[]> processedSet = new HashSet<>();
-    public static Set<int[]> preprocessedSet = new HashSet<>();
+    private static final Map<UUID, CubePos> latestPos = new HashMap<>();
+    private static final Set<Coord> processedSet = ConcurrentHashMap.newKeySet();
+    private static final Set<Coord> preprocessedSet = ConcurrentHashMap.newKeySet();
 
-    private static final Map<int[], Set<OpenStreetMaps.Edge>> mappedEdges = new ConcurrentHashMap<>();
+    private static final Map<Coord, Optional<Set<Edge>>> mappedEdges = new ConcurrentHashMap<>();
 
     private static final DispatcherRunnable runnable;
     private static final Thread dispatcherThread;
@@ -35,13 +34,15 @@ public class PlayerRegionDispatcher {
      * Start the static context for this class.
      */
     static {
+        System.out.println("Created runnable");
+
         runnable = new DispatcherRunnable();
         dispatcherThread = new Thread(runnable, "t121_dispatcher");
         dispatcherThread.start();
     }
 
     public static class DispatcherRunnable implements Runnable {
-        private final BlockingQueue<Optional<int[]>> unprocessedRegions = new LinkedBlockingQueue<>();
+        private final SetBlockingQueue<Optional<Coord>> unprocessedRegions = new SetBlockingQueue<>();
 
         /**
          * Runs the runnable.
@@ -53,7 +54,7 @@ public class PlayerRegionDispatcher {
                 while (tick()) {
                 }
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                TerraMod.LOGGER.error("Error occurred on Dispatcher runnable", e);
                 Thread.currentThread().interrupt();
             }
         }
@@ -65,14 +66,14 @@ public class PlayerRegionDispatcher {
          */
         public boolean tick()
                 throws InterruptedException {
-            Optional<int[]> curRegion = unprocessedRegions.take();
+            Optional<Coord> curRegion = unprocessedRegions.take();
             if (!curRegion.isPresent()) {
                 return false;
             }
 
-            int[] localReg = curRegion.get();
-            Set<OpenStreetMaps.Edge> set = EarthTerrainProcessor.osm.chunkStructures(localReg[0], localReg[1]);
-            mappedEdges.put(localReg, set);
+            Coord localReg = curRegion.get();
+            Set<Edge> set = EarthTerrainProcessor.osm.chunkStructures(localReg.x, localReg.y);
+            mappedEdges.put(localReg, set == null ? Optional.empty() : Optional.of(set));
 
             return true;
         }
@@ -83,7 +84,17 @@ public class PlayerRegionDispatcher {
          * @param cubeZ
          */
         public void addRegion(int cubeX, int cubeZ) {
-            unprocessedRegions.add(Optional.of(toGeo(cubeX, cubeZ)));
+            unprocessedRegions.add(Optional.of(toCoord(cubeX, cubeZ)));
+        }
+
+        /**
+         * Check if
+         * @param cubeX
+         * @param cubeZ
+         * @return
+         */
+        public boolean isBusy(int cubeX, int cubeZ) {
+            return unprocessedRegions.contains(Optional.of(toCoord(cubeX, cubeZ)));
         }
 
         /**
@@ -93,7 +104,7 @@ public class PlayerRegionDispatcher {
             try {
                 unprocessedRegions.put(Optional.empty());
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                TerraMod.LOGGER.error(e);
             }
         }
     }
@@ -119,17 +130,24 @@ public class PlayerRegionDispatcher {
             pos = new CubePos(pos.getX(), 0, pos.getZ());
             // boolean forceGenerating = latestPos == null;
 
-            if (pos != lPos) {
+            if (pos != lPos && lPos != null) {
                 // TODO
 //                int diffX = pos.getX() - (lPos == null ? 0 : lPos.getX());
 //                int diffZ = pos.getZ() - (lPos == null ? 0 : lPos.getZ());
 
+                /*
                 for (int x = -16; x < 16; ++x) {
                     for (int z = -16; z < 16; ++z) {
                         int cx = pos.getX() + x, cz = pos.getZ() + z;
                         if (isGenerated(cx, cz)) continue;
                         runnable.addRegion(cx, cz);
                     }
+                }
+                */
+
+                if(!isGenerated(pos.getX(), pos.getZ()) && !runnable.isBusy(pos.getX(), pos.getZ())) {
+                    System.out.println("["+pos+"] generating from moving! ["+uuid+"]");
+                    runnable.addRegion(pos.getX(), pos.getZ());
                 }
             }
 
@@ -142,6 +160,7 @@ public class PlayerRegionDispatcher {
      * @param e
      */
     public static void onPlayerEvent(PlayerLoggedOutEvent e) {
+        System.out.println("Removing uuid from disconnected player!");
         latestPos.remove(e.player.getUniqueID());
     }
 
@@ -152,8 +171,10 @@ public class PlayerRegionDispatcher {
      * @param cubeZ
      * @return
      */
-    public static Set<OpenStreetMaps.Edge> getEdge(int cubeX, int cubeZ) {
+    public static Set<Edge> getEdge(int cubeX, int cubeZ) {
         if (isBusy(cubeX, cubeZ)) {
+            System.out.println("isBusy");
+
             // Block sync side until dispatcher has results
             // TODO: attempts
             try {
@@ -161,22 +182,14 @@ public class PlayerRegionDispatcher {
                     sleep(50);
                 } while (isBusy(cubeX, cubeZ));
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                TerraMod.LOGGER.error("Error occurred while waiting sync.", e);
+                return null;
             }
         }
 
-        return mappedEdges.get(toGeo(cubeX, cubeZ));
-    }
-
-    /**
-     * Is the current region not being processed by the dispatcher?
-     *
-     * @param cubeX
-     * @param cubeZ
-     * @return
-     */
-    public static boolean isFree(int cubeX, int cubeZ) {
-        return !preprocessedSet.contains(toGeo(cubeX, cubeZ)) && !processedSet.contains(toGeo(cubeX, cubeZ));
+        System.out.println("Getting async generated region!");
+        Optional<Set<Edge>> val = mappedEdges.get(toCoord(cubeX, cubeZ));
+        return val.orElse(null);
     }
 
     /**
@@ -186,7 +199,7 @@ public class PlayerRegionDispatcher {
      * @return
      */
     public static boolean isGenerated(int cubeX, int cubeZ) {
-        return processedSet.contains(toGeo(cubeX, cubeZ));
+        return processedSet.contains(toCoord(cubeX, cubeZ));
     }
 
     /**
@@ -195,17 +208,41 @@ public class PlayerRegionDispatcher {
      * @return
      */
     public static boolean isBusy(int cubeX, int cubeZ) {
-        return preprocessedSet.contains(toGeo(cubeX, cubeZ));
+        return preprocessedSet.contains(toCoord(cubeX, cubeZ));
     }
 
     /**
      * Convert cubeX, cubeZ to int[2]
      * @todo Create class for this.
      * @param x
-     * @param y
+     * @param z
      * @return
      */
-    private static int[] toGeo(int x, int y) {
-        return new int[]{x, y};
+    private static Coord toCoord(int x, int z) {
+        return new Coord(x, z);
+    }
+
+    public static void addPreregion(int cubeX, int cubeZ) {
+        debug("Added", "pre", cubeX, cubeZ);
+        preprocessedSet.add(toCoord(cubeX, cubeZ));
+    }
+
+    public static void addRegion(int cubeX, int cubeZ) {
+        debug("Added", "", cubeX, cubeZ);
+        processedSet.add(toCoord(cubeX, cubeZ));
+    }
+
+    public static void removePreregion(int cubeX, int cubeZ) {
+        debug("Removed", "pre", cubeX, cubeZ);
+        preprocessedSet.remove(toCoord(cubeX, cubeZ));
+    }
+
+    public static void removeRegion(int cubeX, int cubeZ) {
+        debug("Removed", "", cubeX, cubeZ);
+        processedSet.remove(toCoord(cubeX, cubeZ));
+    }
+
+    private static void debug(String action, String regionType, int cubeX, int cubeZ) {
+        System.out.println(action+" "+regionType+"region ("+cubeX+", "+cubeZ+")!");
     }
 }

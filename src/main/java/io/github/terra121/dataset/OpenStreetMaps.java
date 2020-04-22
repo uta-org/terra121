@@ -10,6 +10,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 import io.github.terra121.EarthTerrainProcessor;
+import io.github.terra121.PlayerRegionDispatcher;
 import io.github.terra121.events.RegionDownloadEvent;
 import net.minecraftforge.common.MinecraftForge;
 import okhttp3.OkHttpClient;
@@ -90,6 +91,8 @@ public class OpenStreetMaps
         if (!doRoad) URL_A += "[!\"highway\"]";
         if (!doWater) URL_A += "[!\"water\"][!\"natural\"][!\"waterway\"]";
         URL_A += ";out%20geom(";
+
+        PlayerRegionDispatcher.init(this);
     }
 
     public static Coord getRegion(double lon, double lat) {

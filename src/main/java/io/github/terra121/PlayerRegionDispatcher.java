@@ -26,13 +26,18 @@ import static net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerLoggedOu
 @Mod.EventBusSubscriber
 public class PlayerRegionDispatcher {
     private static final Map<UUID, CubePos> latestPos = new HashMap<>();
-
+    private static Region[][] regions = new Region[3][3];
+    private static final Map<UUID, Region> latestRegion = new HashMap<>();
     private static DispatcherRunnable runnable;
+    private static OpenStreetMaps mapsObj;
 
     public static void init(OpenStreetMaps maps) {
+        if (runnable != null) return;
+
         System.out.println("Created runnable");
 
         runnable = new DispatcherRunnable(maps);
+        mapsObj = maps; // TODO: References
         Thread dispatcherThread = new Thread(runnable, "t121_dispatcher");
         dispatcherThread.start();
     }
@@ -43,7 +48,9 @@ public class PlayerRegionDispatcher {
 
         private OpenStreetMaps maps;
 
-        private DispatcherRunnable() {}
+        @SuppressWarnings("unused")
+        private DispatcherRunnable() {
+        }
 
         public DispatcherRunnable(OpenStreetMaps maps) {
             this.maps = maps;
@@ -66,6 +73,7 @@ public class PlayerRegionDispatcher {
 
         /**
          * Processes the queued regions.
+         *
          * @return
          * @throws InterruptedException
          */
@@ -88,6 +96,7 @@ public class PlayerRegionDispatcher {
 
         /**
          * Add region to the current runnable.
+         *
          * @param cubeX
          * @param cubeZ
          */
@@ -97,6 +106,7 @@ public class PlayerRegionDispatcher {
 
         /**
          * Check if
+         *
          * @param cubeX
          * @param cubeZ
          * @return
@@ -131,7 +141,8 @@ public class PlayerRegionDispatcher {
             public int cubeZ;
             public Region region;
 
-            private RegionModel() {}
+            private RegionModel() {
+            }
 
             public RegionModel(int cubeX, int cubeZ, Region region) {
                 this.cubeX = cubeX;
@@ -144,6 +155,7 @@ public class PlayerRegionDispatcher {
     /**
      * Get called on every entity update.
      * Checks if the player moved on a new chunk to pre-generate the current region (32x32).
+     *
      * @param e
      */
     @SubscribeEvent
@@ -158,9 +170,10 @@ public class PlayerRegionDispatcher {
             double pY = player.posY;
             double pZ = player.posZ;
 
-            /* // TODO: Work on Edge
             CubePos pos = CubePos.fromBlockCoords((int) pX, (int) pY, (int) pZ);
             pos = new CubePos(pos.getX(), 0, pos.getZ());
+
+            /* // TODO: Work on Edge
             // boolean forceGenerating = latestPos == null;
 
             if (pos != lPos && lPos != null) {
@@ -171,12 +184,105 @@ public class PlayerRegionDispatcher {
             }
             */
 
+            if (regions[0][0] == null)
+                prepareRegions(pX, pZ);
+
+            if (pos != lPos && lPos != null) {
+                // Update region once per chunk changed
+                updateRegions(uuid, pX, pZ);
+            }
+
             latestPos.put(uuid, pos);
         }
     }
 
+    private static void prepareRegions(double pX, double pZ) {
+        // Prepare region
+        Region region = createRegion(pX, pZ);
+
+        regions[0][0] = region;
+
+        for (int x = -1; x <= 1; ++x) {
+            for (int z = -1; z <= 1; ++z) {
+                if (x == 0 && z == 0) continue;
+                regions[x + 1][z + 1] = getRegion(x, z);
+            }
+        }
+    }
+
+    private static Region getRegion(int dx, int dz) {
+        return getRegion(dx, dz, 0, 0);
+    }
+
+    private static Region getRegion(int dx, int dz, int relx, int relz) {
+        Region r = regions[relx][relz];
+        OpenStreetMaps.RegionBounds b = r.getBounds();
+
+        int nx = dx > 0 ? b.highX + ICube.SIZE : b.lowX - ICube.SIZE;
+        int nz = dz > 0 ? b.highZ + ICube.SIZE : b.lowZ - ICube.SIZE;
+
+        return createRegion(nx, nz);
+    }
+
+    private static Region createRegion(double x, double z) {
+        double[] c = projection.toGeo(x, z);
+        Coord coord = OpenStreetMaps.getRegion(c[0], c[1]);
+        return new Region(coord, mapsObj.water);
+    }
+
+    private static void updateRegions(UUID uuid, double pX, double pZ) {
+        Region localPlayerRegion = null;
+        int xOffset = 0;
+        int yOffset = 0;
+        for (int x = 0; x < 3; x++) {
+            for (int z = 0; z < 3; z++) {
+                // Check if we are on a new region
+                if ((pX >= regions[x][z].getBounds().lowX) &&
+                        (pX <= (regions[x][z].getBounds().highX)) &&
+                        (pZ >= regions[x][z].getBounds().lowZ) &&
+                        (pZ <= (regions[x][z].getBounds().highZ))) {
+                    localPlayerRegion = regions[x][z];
+                    xOffset = 1 - x;
+                    yOffset = 1 - z;
+                    break;
+                }
+            }
+
+            if (localPlayerRegion != null)
+                break;
+        }
+
+        // Check if we changed the region
+        Region playerRegion = latestRegion.getOrDefault(uuid, null);
+        if (localPlayerRegion == null || localPlayerRegion.is(playerRegion))
+            return;
+
+        latestRegion.put(uuid, localPlayerRegion);
+
+        // Re-create the entire grid
+        Region[][] newRegions = new Region[3][3];
+        for (int x = 0; x < 3; x++)
+            for (int z = 0; z < 3; z++) {
+                int newX = x + xOffset;
+                if (newX < 0)
+                    newX = 2;
+                else if (newX > 2)
+                    newX = 0;
+                int newY = z + yOffset;
+                if (newY < 0)
+                    newY = 2;
+                else if (newY > 2)
+                    newY = 0;
+
+                newRegions[x][z] = getRegion(x - 1, z - 1, newX - 1, newY - 1);
+            }
+
+        regions = newRegions;
+    }
+
     /**
      * Trigger player logout in order to remove the latestPos key.
+     *
      * @param e
      */
     public static void onPlayerEvent(PlayerLoggedOutEvent e) {

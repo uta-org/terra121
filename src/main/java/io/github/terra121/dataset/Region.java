@@ -7,6 +7,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import static io.github.terra121.PlayerRegionDispatcher.projection;
+
 public class Region {
 	public boolean failedDownload = false;
 	public OpenStreetMaps.Coord coord;
@@ -17,6 +19,9 @@ public class Region {
 	
 	public short[][] indexes;
 	public byte[][] states;
+
+	private OpenStreetMaps.RegionBounds bounds;
+	private OpenStreetMaps.Coord center;
 	
 	public static enum BoundaryType {
 		water
@@ -127,7 +132,25 @@ public class Region {
 		return (other instanceof Region) && coord.equals(((Region)other).coord);
 	}
 
-	public OpenStreetMaps.RegionBounds getBounds(GeographicProjection projection) {
-		return OpenStreetMaps.RegionBounds.getBounds(projection, coord);
+	public boolean is(Region other) {
+		if(other == null) return false;
+		return other.getCenter().equals(getCenter());
+	}
+
+	public OpenStreetMaps.RegionBounds getBounds() {
+		if(bounds != null) return bounds;
+		bounds = OpenStreetMaps.RegionBounds.getBounds(projection, coord);
+		return bounds;
+	}
+
+	public OpenStreetMaps.Coord getCenter() {
+		if(center != null) return center;
+		OpenStreetMaps.RegionBounds bounds = getBounds();
+
+		int cx = (bounds.highX - bounds.lowX) / 2,
+			cz = (bounds.highZ - bounds.lowZ) / 2;
+
+		center = new OpenStreetMaps.Coord(cx, cz);
+		return center;
 	}
 }

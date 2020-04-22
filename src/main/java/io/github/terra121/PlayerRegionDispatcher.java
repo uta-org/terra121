@@ -172,24 +172,20 @@ public class PlayerRegionDispatcher {
 
             CubePos pos = CubePos.fromBlockCoords((int) pX, (int) pY, (int) pZ);
             pos = new CubePos(pos.getX(), 0, pos.getZ());
-
-            /* // TODO: Work on Edge
-            // boolean forceGenerating = latestPos == null;
-
-            if (pos != lPos && lPos != null) {
-                if(!runnable.isGenerated(pos.getX(), pos.getZ()) && !runnable.isBusy(pos.getX(), pos.getZ())) {
-                    System.out.println("["+pos+"] generating from moving! ["+uuid+"]");
-                    runnable.addRegion(pos.getX(), pos.getZ());
-                }
-            }
-            */
-
+            
             if (regions[0][0] == null)
                 prepareRegions(pX, pZ);
 
             if (pos != lPos && lPos != null) {
                 // Update region once per chunk changed
                 updateRegions(uuid, pX, pZ);
+            }
+
+            // TODO: Work on Edge
+
+            if (pos != lPos && lPos != null && !runnable.isGenerated(pos.getX(), pos.getZ()) && !runnable.isBusy(pos.getX(), pos.getZ())) {
+                System.out.println("[" + pos + "] generating from moving! [" + uuid + "]");
+                runnable.addRegion(pos.getX(), pos.getZ());
             }
 
             latestPos.put(uuid, pos);
@@ -268,13 +264,13 @@ public class PlayerRegionDispatcher {
                     newX = 2;
                 else if (newX > 2)
                     newX = 0;
-                int newY = z + yOffset;
-                if (newY < 0)
-                    newY = 2;
-                else if (newY > 2)
-                    newY = 0;
+                int newZ = z + yOffset;
+                if (newZ < 0)
+                    newZ = 2;
+                else if (newZ > 2)
+                    newZ = 0;
 
-                newRegions[x][z] = getRegion(x - 1, z - 1, newX - 1, newY - 1);
+                newRegions[x][z] = getRegion(x - 1, z - 1, newX - 1, newZ - 1);
             }
 
         regions = newRegions;

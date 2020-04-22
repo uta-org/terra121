@@ -11,8 +11,7 @@ public class ConformalEstimate extends Airocean {
     double VECTOR_SCALE_FACTOR = 1/1.1473979730192934;
 
     public ConformalEstimate () {
-        InputStream is = null;
-
+        InputStream is;
 
         int sideLength = 256;
 
@@ -20,8 +19,8 @@ public class ConformalEstimate extends Airocean {
         double[][] ys = new double[xs.length][];
 
         try {
-            //is = new FileInputStream("../resources/assets/terra121/data/conformal.txt");
-            is = getClass().getClassLoader().getResourceAsStream("assets/terra121/data/conformal.txt");
+            // is = new FileInputStream("../resources/assets/terra121/data/conformal.txt");
+            is = getClass().getClassLoader().getResourceAsStream("assets/terra121/data/conformal.txt"); // @todo: gives null pointer exception (lostcities?)
             Scanner sc = new Scanner(is);
 
             for (int u = 0; u < xs.length; u++) {

@@ -8,9 +8,12 @@ public class CubeHeightmapEvent extends Event {
     private double[][] heightmaps;
     private boolean surface;
 
-    private CubeHeightmapEvent() {}
+    public CubeHeightmapEvent() {
+        super();
+    }
 
     public CubeHeightmapEvent(CubePos cubePos, double[][] heightmaps, boolean surface) {
+        this();
         this.cubePos = cubePos;
         this.heightmaps = heightmaps;
         this.surface = surface;

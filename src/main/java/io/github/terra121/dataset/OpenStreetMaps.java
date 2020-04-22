@@ -135,8 +135,8 @@ public class OpenStreetMaps
         Region region;
 
         if ((region = regions.get(coord)) == null) {
-            if(!MinecraftForge.EVENT_BUS.post(new RegionCacheEvent.Pre()))
-                return null;
+            if(MinecraftForge.EVENT_BUS.post(new RegionCacheEvent.Pre()))
+                return null; // cancelled
 
             region = new Region(coord, water);
             int i;

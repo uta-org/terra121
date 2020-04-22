@@ -9,9 +9,12 @@ public class RegionCacheEvent extends Event {
     private boolean error;
     private Region region;
 
-    private RegionCacheEvent() {}
+    public RegionCacheEvent() {
+        super();
+    }
 
     public RegionCacheEvent(Region region) {
+        this();
         this.region = region;
     }
 

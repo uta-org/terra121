@@ -212,8 +212,7 @@ public class PlayerDispatcher {
     private static void prepareRegions(double pX, double pZ) {
         // Prepare region
         Region region = createRegion(pX, pZ);
-
-        regions[0][0] = region;
+        regions[1][1] = region;
 
         for (int x = -1; x <= 1; ++x) {
             for (int z = -1; z <= 1; ++z) {
@@ -293,6 +292,10 @@ public class PlayerDispatcher {
             if (localPlayerRegion != null)
                 break;
         }
+
+        // We are still on the center regions
+        if(localPlayerRegion != null && localPlayerRegion.is(regions[1][1]))
+            return false;
 
         // Check if we changed the region
         Region playerRegion = latestRegion.getOrDefault(uuid, null);

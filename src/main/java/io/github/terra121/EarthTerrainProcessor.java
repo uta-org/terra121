@@ -124,8 +124,10 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
         double[][] map = (double[][]) model[0];
         boolean surface = (boolean) model[1];
 
-        if(!MinecraftForge.EVENT_BUS.post(new CubeHeightmapEvent(new CubePos(cubeX, cubeY, cubeZ), map, surface)))
-            return null;
+        if(MinecraftForge.EVENT_BUS.post(new CubeHeightmapEvent(new CubePos(cubeX, cubeY, cubeZ), map, surface)))
+            return null; // cancelled
+
+        // MinecraftForge.EVENT_BUS.post(new CubeHeightmapEvent(new CubePos(cubeX, cubeY, cubeZ), map, surface));
 
     	//fill in the world
         for(int x=0; x<16; x++) {
@@ -305,7 +307,6 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
         }
     }
 
-
     @Override
     public void populate(ICube cube) {
         /**
@@ -321,7 +322,8 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
 				cubiccfg.expectedBaseHeight = (float) heights.estimateLocal(proj[0], proj[1]);
             }
 
-            MinecraftForge.EVENT_BUS.post(new PopulateCubeEvent.Pre(world, rand, cube.getX(), cube.getY(), cube.getZ(), false));
+            if(MinecraftForge.EVENT_BUS.post(new PopulateCubeEvent.Pre(world, rand, cube.getX(), cube.getY(), cube.getZ(), false)))
+                return; // cancelled
 
             CubePos pos = cube.getCoords();
 
@@ -354,6 +356,10 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
                     return 0;
             }
         return type==defState?1:-1;
+    }
+
+    public <T extends ICubicPopulator & Comparable<Object>> void addSurfacePopulator(T populator) {
+        surfacePopulators.add(populator);
     }
 
     @Override

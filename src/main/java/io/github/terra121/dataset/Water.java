@@ -1,12 +1,7 @@
 package io.github.terra121.dataset;
 
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintStream;
+import java.io.*;
 import java.util.Arrays;
 
 import javax.imageio.ImageIO;
@@ -24,7 +19,8 @@ public class Water {
 	public int hres;
 	
 	public Water(OpenStreetMaps osm, int horizontalres) throws IOException {
-		InputStream is = getClass().getClassLoader().getResourceAsStream("assets/terra121/data/ground.dat");
+		InputStream is = getClass().getClassLoader().getResourceAsStream("assets/terra121/data/ground.dat"); // @todo: gives null pointer exception (lostcities?)
+		// InputStream is = new FileInputStream("../resources/assets/terra121/data/ground.dat");
 		grounding = new WaterGround(is);
 		this.osm = osm;
 		this.hres = horizontalres;

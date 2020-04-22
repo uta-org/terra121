@@ -17,6 +17,7 @@ import io.github.opencubicchunks.cubicchunks.cubicgen.common.biome.IBiomeBlockRe
 import io.github.opencubicchunks.cubicchunks.cubicgen.common.biome.IBiomeBlockReplacerProvider;
 import io.github.opencubicchunks.cubicchunks.cubicgen.customcubic.CustomGeneratorSettings;
 import io.github.opencubicchunks.cubicchunks.cubicgen.customcubic.structure.CubicCaveGenerator;
+import io.github.terra121.control.TerraCommand;
 import io.github.terra121.dataset.Heights;
 import io.github.terra121.dataset.OpenStreetMaps;
 import io.github.terra121.events.CubeHeightmapEvent;
@@ -65,8 +66,6 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
         cfg = new EarthGeneratorSettings(world.getWorldInfo().getGeneratorOptions());
     	projection = cfg.getProjection();
 
-    	PlayerDispatcher.projection = projection;
-    	
     	doRoads = cfg.settings.roads && world.getWorldInfo().isMapFeaturesEnabled();
         doBuildings = cfg.settings.buildings && world.getWorldInfo().isMapFeaturesEnabled();
         
@@ -75,7 +74,13 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
         osm = new OpenStreetMaps(projection, doRoads, cfg.settings.osmwater, doBuildings);
         heights = new Heights(13, cfg.settings.smoothblend, cfg.settings.osmwater?osm.water:null);
         depths = new Heights(10, cfg.settings.osmwater?osm.water:null); //below sea level only generates a level 10, this shouldn't lag too bad cause a zoom 10 tile is frickin massive (64x zoom 13)
-        
+
+        // @todo
+        PlayerDispatcher.projection = projection;
+
+        TerraCommand.projection = projection;
+        TerraCommand.heights = heights;
+
         unnaturals = new HashSet<>();
         unnaturals.add(Blocks.STONEBRICK);
         unnaturals.add(Blocks.CONCRETE);

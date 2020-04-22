@@ -11,6 +11,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
+import javax.annotation.Nullable;
 import java.util.*;
 
 import static io.github.terra121.dataset.OpenStreetMaps.Coord;
@@ -33,6 +34,7 @@ public class PlayerDispatcher {
 
     /**
      * Creates the dispatcher instance.
+     *
      * @param maps The OSM object.
      */
     public static void init(OpenStreetMaps maps) {
@@ -44,6 +46,10 @@ public class PlayerDispatcher {
         mapsObj = maps; // TODO: References
         Thread dispatcherThread = new Thread(runnable, "Region Dispatcher");
         dispatcherThread.start();
+    }
+
+    public static Region[][] getRegions() {
+        return regions;
     }
 
     /**
@@ -102,6 +108,7 @@ public class PlayerDispatcher {
 
         /**
          * Adds a region based on the grid position.
+         *
          * @param dx delta x (expected from -1 to 1)
          * @param dz delta z (expected from -1 to 1)
          */
@@ -112,6 +119,7 @@ public class PlayerDispatcher {
 
         /**
          * Checks if the current region is being downloaded.
+         *
          * @param dx delta x (expected from -1 to 1)
          * @param dz delta z (expected from -1 to 1)
          * @return true if the current region is being downloaded.
@@ -127,6 +135,7 @@ public class PlayerDispatcher {
 
         /**
          * Checks if the current region was already downloaded.
+         *
          * @param x custom x
          * @param z custom z
          * @return true if the region was already downloaded.
@@ -137,6 +146,7 @@ public class PlayerDispatcher {
 
         /**
          * Checks if the current region was already downloaded.
+         *
          * @param c expected value is the region center (the coord that is stored when a region is downloaded).
          * @return true if the region was already downloaded.
          */
@@ -193,7 +203,7 @@ public class PlayerDispatcher {
                 for (int x = -1; x <= 1; ++x) {
                     for (int z = -1; z <= 1; ++z) {
                         Region r = regions[x + 1][z + 1];
-                        if(!runnable.isGenerated(r.getCenter()) && !runnable.isBusy(x, z)) {
+                        if (!runnable.isGenerated(r.getCenter()) && !runnable.isBusy(x, z)) {
                             runnable.addRegion(x, z);
                         }
                     }
@@ -206,6 +216,7 @@ public class PlayerDispatcher {
 
     /**
      * Prepares the regions.
+     *
      * @param pX player x pos
      * @param pZ player z pos
      */
@@ -224,6 +235,7 @@ public class PlayerDispatcher {
 
     /**
      * Gets the region neighbor (on loop call) using the center region (1,1) as relative.
+     *
      * @param dx delta x (expected from -1 to 1)
      * @param dz delta z (expected from -1 to 1)
      * @return The region for that delta position on a loop call.
@@ -235,8 +247,9 @@ public class PlayerDispatcher {
 
     /**
      * Gets the region neighbor (on loop call) using a custom relative position on the grid.
-     * @param dx delta x (expected from -1 to 1)
-     * @param dz delta z (expected from -1 to 1)
+     *
+     * @param dx   delta x (expected from -1 to 1)
+     * @param dz   delta z (expected from -1 to 1)
      * @param relx relative x (expected from -1 to 1)
      * @param relz relative x (expected from -1 to 1)
      * @return A reference region created by the createRegion method.
@@ -246,14 +259,15 @@ public class PlayerDispatcher {
         Region r = regions[relx][relz];
         OpenStreetMaps.RegionBounds b = r.getBounds();
 
-        int nx = dx > 0 ? b.highX + ICube.SIZE : b.lowX - ICube.SIZE;
-        int nz = dz > 0 ? b.highZ + ICube.SIZE : b.lowZ - ICube.SIZE;
+        int nx = dx == 0 ? r.getCenter().x : (dx > 0 ? b.highX + ICube.SIZE : b.lowX - ICube.SIZE);
+        int nz = dz == 0 ? r.getCenter().y : (dz > 0 ? b.highZ + ICube.SIZE : b.lowZ - ICube.SIZE);
 
         return createRegion(nx, nz);
     }
 
     /**
      * Create a region reference from a position.
+     *
      * @param x a Minecraft world x position.
      * @param z a Minecraft world z position.
      * @return A reference for a region on that world position.
@@ -261,14 +275,15 @@ public class PlayerDispatcher {
     private static Region createRegion(double x, double z) {
         double[] c = projection.toGeo(x, z);
         Coord coord = OpenStreetMaps.getRegion(c[0], c[1]);
-        return new Region(coord, mapsObj.water);
+        return new Region(coord, mapsObj.water).forceComponents();
     }
 
     /**
      * Updates the region grid based on the player position.
+     *
      * @param uuid The player uuid.
-     * @param pX The player x position.
-     * @param pZ The player z position.
+     * @param pX   The player x position.
+     * @param pZ   The player z position.
      * @return true if the grid was updated.
      */
     private static boolean updateRegions(UUID uuid, double pX, double pZ) {
@@ -278,10 +293,11 @@ public class PlayerDispatcher {
         for (int x = 0; x < 3; x++) {
             for (int z = 0; z < 3; z++) {
                 // Check if we are on a new region
-                if ((pX >= regions[x][z].getBounds().lowX) &&
-                        (pX <= (regions[x][z].getBounds().highX)) &&
-                        (pZ >= regions[x][z].getBounds().lowZ) &&
-                        (pZ <= (regions[x][z].getBounds().highZ))) {
+                if (inBounds(pX, pZ,
+                        regions[x][z].getBounds().lowX,
+                        regions[x][z].getBounds().highX,
+                        regions[x][z].getBounds().lowZ,
+                        regions[x][z].getBounds().highZ)) {
                     localPlayerRegion = regions[x][z];
                     xOffset = 1 - x;
                     yOffset = 1 - z;
@@ -294,7 +310,7 @@ public class PlayerDispatcher {
         }
 
         // We are still on the center regions
-        if(localPlayerRegion != null && localPlayerRegion.is(regions[1][1]))
+        if (localPlayerRegion != null && localPlayerRegion.is(regions[1][1]))
             return false;
 
         // Check if we changed the region
@@ -304,26 +320,77 @@ public class PlayerDispatcher {
 
         latestRegion.put(uuid, localPlayerRegion);
 
-        // Re-create the entire grid
-        Region[][] newRegions = new Region[3][3];
-        for (int x = 0; x < 3; x++)
-            for (int z = 0; z < 3; z++) {
-                int newX = x + xOffset;
-                if (newX < 0)
-                    newX = 2;
-                else if (newX > 2)
-                    newX = 0;
-                int newZ = z + yOffset;
-                if (newZ < 0)
-                    newZ = 2;
-                else if (newZ > 2)
-                    newZ = 0;
+        //noinspection ConstantConditions
+        if (inBounds(pX, pZ, getGlobalRegionBounds())) {
+            // Re-create the entire grid
+            Region[][] newRegions = new Region[3][3];
+            for (int x = 0; x < 3; x++)
+                for (int z = 0; z < 3; z++) {
+                    int newX = x + xOffset;
+                    if (newX < 0)
+                        newX = 2;
+                    else if (newX > 2)
+                        newX = 0;
+                    int newZ = z + yOffset;
+                    if (newZ < 0)
+                        newZ = 2;
+                    else if (newZ > 2)
+                        newZ = 0;
 
-                newRegions[x][z] = getRegion(x - 1, z - 1, newX, newZ);
-            }
+                    newRegions[x][z] = getRegion(x - 1, z - 1, newX, newZ);
+                }
 
-        regions = newRegions;
+            regions = newRegions;
+        } else {
+            // TP was done
+            prepareRegions(pX, pZ);
+        }
         return true;
+    }
+
+    /**
+     * Checks that the passed position (x, z) is inside bounds.
+     *
+     * @param x
+     * @param z
+     * @param b
+     * @return
+     */
+    private static boolean inBounds(double x, double z, OpenStreetMaps.RegionBounds b) {
+        return inBounds(x, z, b.lowX, b.highX, b.lowZ, b.highZ);
+    }
+
+    /**
+     * Checks that the passed position (x, z) is inside bounds.
+     *
+     * @param x
+     * @param z
+     * @param lowX
+     * @param highX
+     * @param lowZ
+     * @param highZ
+     * @return
+     */
+    private static boolean inBounds(double x, double z, int lowX, int highX, int lowZ, int highZ) {
+        return (x >= lowX) &&
+                (x <= highX) &&
+                (z >= lowZ) &&
+                (z <= highZ);
+    }
+
+    /**
+     * Get the global region bounds (used on tps).
+     *
+     * @return
+     */
+    @Nullable
+    private static OpenStreetMaps.RegionBounds getGlobalRegionBounds() {
+        if (regions[0][0] == null) return null;
+        return new OpenStreetMaps.RegionBounds(
+                regions[0][0].getBounds().lowX,
+                regions[2][0].getBounds().highX,
+                regions[0][0].getBounds().lowZ,
+                regions[0][2].getBounds().highZ);
     }
 
     /**

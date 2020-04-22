@@ -149,4 +149,19 @@ public class Region {
 		center = new OpenStreetMaps.Coord(cx, cz);
 		return center;
 	}
+
+	public Region forceComponents() {
+		// Ensure that bounds & centers are calculated (mostly used in debugging purposes)
+		getCenter();
+		return this;
+	}
+
+	@Override
+	public String toString() {
+		return "Region{" +
+				"coord=" + coord +
+				", bounds=" + bounds +
+				", center=" + center +
+				'}';
+	}
 }

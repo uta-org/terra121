@@ -601,7 +601,8 @@ public class OpenStreetMaps
             int lowZ = (int) Math.floor(Math.min(Math.min(ll[1], ul[1]), Math.min(lr[1], ur[1])) / CHUNK_SIZE);
             int highZ = (int) Math.ceil(Math.max(Math.max(ll[1], ul[1]), Math.max(lr[1], ur[1])) / CHUNK_SIZE);
 
-            RegionBounds b = new RegionBounds(lowX, highX, lowZ, highZ);
+            // Ensure bounds
+            RegionBounds b = new RegionBounds(Math.min(lowX, highX), Math.max(highX, lowX), Math.min(lowZ, highZ), Math.max(highZ, lowZ));
             b.coord = regionCoord;
             return b;
         }

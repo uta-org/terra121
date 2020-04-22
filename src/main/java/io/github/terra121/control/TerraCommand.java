@@ -2,25 +2,28 @@ package io.github.terra121.control;
 
 import io.github.opencubicchunks.cubicchunks.api.worldgen.ICubeGenerator;
 import io.github.opencubicchunks.cubicchunks.core.server.CubeProviderServer;
+import io.github.terra121.EarthBiomeProvider;
+import io.github.terra121.EarthTerrainProcessor;
+import io.github.terra121.PlayerDispatcher;
+import io.github.terra121.dataset.Heights;
+import io.github.terra121.dataset.OpenStreetMaps;
+import io.github.terra121.dataset.Region;
+import io.github.terra121.projection.GeographicProjection;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.command.CommandBase;
-import net.minecraft.entity.Entity;
 import net.minecraft.command.CommandException;
-import net.minecraft.command.WrongUsageException;
 import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.event.ClickEvent;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.BiomeProvider;
 import net.minecraft.world.chunk.IChunkProvider;
-import io.github.terra121.EarthTerrainProcessor;
-import io.github.terra121.projection.GeographicProjection;
-import io.github.terra121.EarthBiomeProvider;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.event.ClickEvent;
-import java.util.List;
-import java.util.Arrays;
-import net.minecraft.client.resources.I18n;
 
 public class TerraCommand extends CommandBase {
 	@Override
@@ -40,19 +43,22 @@ public class TerraCommand extends CommandBase {
 		return null;
 	}*/
 
+	public static GeographicProjection projection;
+	public static Heights heights;
+
 	@Override
 	public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
 		World world = sender.getEntityWorld();
 		IChunkProvider cp = world.getChunkProvider();
 
 		if(!(cp instanceof CubeProviderServer)) {
-			throw new CommandException("terra121.error.notcc", new Object[0]);
+			throw new CommandException("terra121.error.notcc");
 		}
 
 		ICubeGenerator gen = ((CubeProviderServer)cp).getCubeGenerator();
 
 		if(!(gen instanceof EarthTerrainProcessor)) {
-			throw new CommandException("terra121.error.notterra", new Object[0]);
+			throw new CommandException("terra121.error.notterra");
 		}
 
 		String result = "";
@@ -63,7 +69,7 @@ public class TerraCommand extends CommandBase {
 		{
 		case "": case "where": case "ou":
 			c = getPlayerCoords(sender, args.length<2?null:args[1], projection);
-			if(c==null)throw new CommandException("terra121.error.getcoords", new Object[0]);
+			if(c==null)throw new CommandException("terra121.error.getcoords");
 			else result = I18n.format("terra121.commands.terra.latlon", c[1], c[0]);
 			break;
 
@@ -74,7 +80,7 @@ public class TerraCommand extends CommandBase {
 
 		case "osm":
 			c = getPlayerCoords(sender, args.length<2?null:args[1], projection);
-			if(c==null)throw new CommandException("terra121.error.getcoords", new Object[0]);
+			if(c==null)throw new CommandException("terra121.error.getcoords");
 
 			String url = String.format("https://www.openstreetmap.org/#map=17/%.5f/%.5f",c[1],c[0]);
 			ITextComponent out = new TextComponentString(url);
@@ -85,7 +91,7 @@ public class TerraCommand extends CommandBase {
 
 		case "conv": case "convert":
 			if(args.length<3) {
-				throw new WrongUsageException(getUsage(sender), new Object[0]);
+				throw new WrongUsageException(getUsage(sender));
 			}
 
 			c = getNumbers(args[1],args[2]);
@@ -104,7 +110,7 @@ public class TerraCommand extends CommandBase {
 		case "env": case "environment":
 			BiomeProvider bp = world.getBiomeProvider();
 			if(!(bp instanceof EarthBiomeProvider)) { //must have normal biome provider
-				throw new CommandException("terra121.error.notterra", new Object[0]);
+				throw new CommandException("terra121.error.notterra");
 			}
 
 			c = getCoordArgs(sender, args, projection);
@@ -121,12 +127,74 @@ public class TerraCommand extends CommandBase {
 			result =  I18n.format("terra121.commands.terra.tissot", Math.sqrt(Math.abs(c[0])), c[1]*180.0/Math.PI);
 			break;
 
+		case "regions": case "regs":
+            {
+                StringBuilder sb = new StringBuilder();
+                Region[][] regions = PlayerDispatcher.getRegions();
+
+                for (int x = 0; x < 3; x++)
+                    for (int z = 0; z < 3; z++) {
+                        int rx = x - 1;
+                        int rz = z - 1;
+                        sb.append("(").append(rx).append(", ").append(rz).append("): ").append(regions[x][z].toString());
+                        sb.append("\n");
+                    }
+
+                result = sb.toString();
+            }
+			break;
+
+		case "region-tp": case "regtp":
+            EntityPlayer player = null;
+            try {
+                player = getPlayer(server, sender, args[2]);
+            } catch (Exception ignored) {
+
+            }
+            if(player != null) {
+                Integer tryX = tryParse(args[3]);
+                Integer tryZ = tryParse(args[4]);
+                if(tryX != null && tryZ != null) {
+                    int x = tryX;
+                    int z = tryZ;
+
+                    if(x < -1 || x > 1 || z < -1 || z > 1)
+                        result = "Invalid x, z provided values should be between -1 and 1.";
+                    else {
+                        Region[][] regions = PlayerDispatcher.getRegions();
+                        OpenStreetMaps.Coord center = regions[x][z].getCenter();
+
+                        double[] proj = projection.toGeo(x, z);
+                        double Y = heights.estimateLocal(proj[0], proj[1]);
+                        player.attemptTeleport(center.x, Y, center.y);
+                    }
+                } else {
+                    if(tryX == null)
+                        result = "Not specified x.";
+                    else
+                        result = "Not specified z.";
+                }
+            } else {
+                result = "Player not found.";
+            }
+            break;
+
 		default:
-			throw new WrongUsageException(getUsage(sender), new Object[0]);
+			throw new WrongUsageException(getUsage(sender));
 		}
 
 		if(result!=null)sender.sendMessage(new TextComponentString(result));
 	}
+
+    public Integer tryParse(Object obj) {
+        Integer retVal;
+        try {
+            retVal = Integer.parseInt((String) obj);
+        } catch (NumberFormatException nfe) {
+            retVal = null;
+        }
+        return retVal;
+    }
 
 	double[] getCoordArgs(ICommandSender sender, String[] args, GeographicProjection projection) throws CommandException {
 		if(args.length==3) {
@@ -134,12 +202,12 @@ public class TerraCommand extends CommandBase {
 		}
 		else if(args.length==2) {
 			double[] c = getPlayerCoords(sender, args[1], projection);
-			if(c==null)throw new CommandException("terra121.error.getcoords", new Object[0]);
+			if(c==null)throw new CommandException("terra121.error.getcoords");
 			return c;
 		}
 		else {
 			double[] c = getPlayerCoords(sender, null, projection);
-			if(c==null)throw new CommandException("terra121.error.getcoords", new Object[0]);
+			if(c==null)throw new CommandException("terra121.error.getcoords");
 			return c;
 		}
 	}
@@ -150,7 +218,7 @@ public class TerraCommand extends CommandBase {
 			x = Double.parseDouble(s1);
 			y = Double.parseDouble(s2);
 		} catch(Exception e) {
-			throw new CommandException("terra121.error.numbers", new Object[0]);
+			throw new CommandException("terra121.error.numbers");
 		}
 
 		return new double[] {x,y};
@@ -161,18 +229,18 @@ public class TerraCommand extends CommandBase {
 		Entity e = sender.getCommandSenderEntity();
 		if(arg!=null) {
 			if(!isOp(sender)) {
-				throw new CommandException("terra121.error.notopothers", new Object[0]);
+				throw new CommandException("terra121.error.notopothers");
 			}
 			e = sender.getEntityWorld().getPlayerEntityByName(arg);
 			if(e==null) {
-				throw new CommandException("terra121.error.unknownplayer", new Object[0]);
+				throw new CommandException("terra121.error.unknownplayer");
 			}
 			pos = e.getPositionVector();
 		}
 		else if(e!=null)
 			pos = sender.getPositionVector();
 		else {
-			throw new CommandException("terra121.error.notplayer", new Object[0]);
+			throw new CommandException("terra121.error.notplayer");
 		}
 
 		double[] proj = projection.toGeo(pos.x, pos.z);
@@ -187,7 +255,7 @@ public class TerraCommand extends CommandBase {
 	public int getRequiredPermissionLevel() {
 		return 0;
 	}
-	
+
 	public boolean checkPermission(MinecraftServer server, ICommandSender sender) {
 		return true;
 	}

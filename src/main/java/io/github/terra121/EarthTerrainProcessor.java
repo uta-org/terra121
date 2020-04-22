@@ -65,7 +65,7 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
         cfg = new EarthGeneratorSettings(world.getWorldInfo().getGeneratorOptions());
     	projection = cfg.getProjection();
 
-    	PlayerRegionDispatcher.projection = projection;
+    	PlayerDispatcher.projection = projection;
     	
     	doRoads = cfg.settings.roads && world.getWorldInfo().isMapFeaturesEnabled();
         doBuildings = cfg.settings.buildings && world.getWorldInfo().isMapFeaturesEnabled();

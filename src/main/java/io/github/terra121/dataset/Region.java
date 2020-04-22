@@ -1,13 +1,9 @@
 package io.github.terra121.dataset;
 
-import io.github.terra121.EarthTerrainProcessor;
-import io.github.terra121.projection.GeographicProjection;
-
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-import static io.github.terra121.PlayerRegionDispatcher.projection;
+import static io.github.terra121.PlayerDispatcher.projection;
 
 public class Region {
 	public boolean failedDownload = false;

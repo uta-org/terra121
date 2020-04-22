@@ -24,11 +24,11 @@ import static net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerLoggedOu
  * @author z3nth10n
  */
 @Mod.EventBusSubscriber
-public class PlayerRegionDispatcher {
+public class PlayerDispatcher {
     private static final Map<UUID, CubePos> latestPos = new HashMap<>();
     private static Region[][] regions = new Region[3][3];
     private static final Map<UUID, Region> latestRegion = new HashMap<>();
-    private static DispatcherRunnable runnable;
+    private static RegionRunnable runnable;
     private static OpenStreetMaps mapsObj;
 
     /**
@@ -40,23 +40,26 @@ public class PlayerRegionDispatcher {
 
         System.out.println("Created runnable");
 
-        runnable = new DispatcherRunnable(maps);
+        runnable = new RegionRunnable(maps);
         mapsObj = maps; // TODO: References
-        Thread dispatcherThread = new Thread(runnable, "t121_dispatcher");
+        Thread dispatcherThread = new Thread(runnable, "Region Dispatcher");
         dispatcherThread.start();
     }
 
-    public static class DispatcherRunnable implements Runnable {
+    /**
+     * A runnable that works for regions.
+     */
+    public static class RegionRunnable implements Runnable {
         private final SetBlockingQueue<Optional<Region>> unprocessedRegions = new SetBlockingQueue<>();
         private final Set<Coord> generatedRegions = Sets.newConcurrentHashSet();
 
         private OpenStreetMaps maps;
 
         @SuppressWarnings("unused")
-        private DispatcherRunnable() {
+        private RegionRunnable() {
         }
 
-        public DispatcherRunnable(OpenStreetMaps maps) {
+        public RegionRunnable(OpenStreetMaps maps) {
             this.maps = maps;
         }
 

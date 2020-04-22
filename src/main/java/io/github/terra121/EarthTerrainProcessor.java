@@ -37,7 +37,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
 //import io.github.opencubicchunks.cubicchunks.api.worldgen.structure.event.InitCubicStructureGeneratorEvent;
 
-public class EarthTerrainProcessor extends BasicCubeGenerator
+public class EarthTerrainProcessor extends BasicCubeGenerator implements IEarthProcessor
 {
     public static OpenStreetMaps osm;
     public static World worldObj;
@@ -46,8 +46,8 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
     public Heights depths;
     public HashMap<Biome, List<IBiomeBlockReplacer>> biomeBlockReplacers;
     public BiomeProvider biomes;
-    public GeographicProjection projection;
 
+    private GeographicProjection projection;
     public Set<Block> unnaturals;
     private CustomGeneratorSettings cubiccfg;
     private Set<ICubicPopulator> surfacePopulators;
@@ -78,7 +78,7 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
         // @todo
         PlayerDispatcher.projection = projection;
 
-        TerraCommand.projection = projection;
+        // TerraCommand.projection = projection;
         TerraCommand.heights = heights;
 
         unnaturals = new HashSet<>();
@@ -381,5 +381,15 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
             return new BlockPos((int)(pos.getX() + vec[0]*100.0), pos.getY(), (int)(pos.getZ() + vec[1]*100.0));
         }
         return null;
+    }
+
+    @Override
+    public GeographicProjection getProjection() {
+        return projection;
+    }
+
+    @Override
+    public EarthTerrainProcessor getProcessor() {
+        return this;
     }
 }

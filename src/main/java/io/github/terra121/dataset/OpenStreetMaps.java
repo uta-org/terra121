@@ -25,8 +25,7 @@ import io.github.terra121.TerraConfig;
 import io.github.terra121.TerraMod;
 import io.github.terra121.projection.GeographicProjection;
 
-public class OpenStreetMaps
-{
+public class OpenStreetMaps {
     private static final double CHUNK_SIZE = 16.0;
     public static final double TILE_SIZE = 1 / 60.0;//250*(360.0/40075000.0);
     private static final double NOTHING = 0.01;
@@ -100,6 +99,7 @@ public class OpenStreetMaps
 
     /**
      * Ensure that all the regions that a chunk can contain was downloaded, for this, check the 4 corners of a chunk.
+     *
      * @param x
      * @param z
      * @return
@@ -107,7 +107,7 @@ public class OpenStreetMaps
     public Set<Edge> chunkStructures(int x, int z) {
         Coord coord = new Coord(x, z);
 
-        if(chunks.containsKey(coord)) return chunks.get(coord);
+        if (chunks.containsKey(coord)) return chunks.get(coord);
 
         if (regionCache(projection.toGeo(x * CHUNK_SIZE, z * CHUNK_SIZE)) == null)
             return null;
@@ -126,7 +126,7 @@ public class OpenStreetMaps
 
     public Region regionCache(double[] corner) {
         //bound check
-        if(!(corner[0]>=-180 && corner[0]<=180 && corner[1]>=-80 && corner[1]<=80)) {
+        if (!(corner[0] >= -180 && corner[0] <= 180 && corner[1] >= -80 && corner[1] <= 80)) {
             return null;
         }
 
@@ -135,13 +135,13 @@ public class OpenStreetMaps
         Region region;
 
         if ((region = regions.get(coord)) == null) {
-            if(MinecraftForge.EVENT_BUS.post(new RegionCacheEvent.Pre()))
+            if (MinecraftForge.EVENT_BUS.post(new RegionCacheEvent.Pre()))
                 return null; // cancelled
 
             region = new Region(coord, water);
             int i;
             //noinspection StatementWithEmptyBody
-            for (i = 0; i < 5 && !regionDownload(region); i++);
+            for (i = 0; i < 5 && !regionDownload(region); i++) ;
             regions.put(coord, region);
             if (regions.size() > numcache) {
                 //TODO: delete beter
@@ -205,7 +205,7 @@ public class OpenStreetMaps
 
             String json;
             File file = filepath.toFile();
-            if(file.exists()) {
+            if (file.exists()) {
                 json = new String(Files.readAllBytes(filepath), StandardCharsets.UTF_8);
             } else {
                 OkHttpClient client = new OkHttpClient();
@@ -216,7 +216,7 @@ public class OpenStreetMaps
                 try (Response response = client.newCall(request).execute()) {
                     //noinspection ConstantConditions
                     json = response.body().string();
-                } catch(IOException e) {
+                } catch (IOException e) {
                     TerraMod.LOGGER.error("Osm region failed on OkHttpClient request", e);
                     return false;
                 }
@@ -393,7 +393,7 @@ public class OpenStreetMaps
                 } else unusedWays.add(elem);
             } else if (elem.type == EType.relation && elem.members != null && elem.tags != null) {
 
-                if(doWater) {
+                if (doWater) {
                     String naturalv = elem.tags.get("natural");
                     String waterv = elem.tags.get("water");
                     String wway = elem.tags.get("waterway");
@@ -411,7 +411,7 @@ public class OpenStreetMaps
                         continue;
                     }
                 }
-                if(doBuildings && elem.tags.get("building")!=null) {
+                if (doBuildings && elem.tags.get("building") != null) {
                     for (Member member : elem.members) {
                         if (member.type == EType.way) {
                             Element way = allWays.get(member.ref);
@@ -451,19 +451,19 @@ public class OpenStreetMaps
 
     void addWay(Element elem, Type type, byte lanes, Region region, Attributes attributes, byte layer) {
         double[] lastProj = null;
-        if(elem.geometry != null)
-        for (Geometry geom : elem.geometry) {
-            if (geom == null) lastProj = null;
-            else {
-                double[] proj = projection.fromGeo(geom.lon, geom.lat);
+        if (elem.geometry != null)
+            for (Geometry geom : elem.geometry) {
+                if (geom == null) lastProj = null;
+                else {
+                    double[] proj = projection.fromGeo(geom.lon, geom.lat);
 
-                if (lastProj != null) { //register as a road edge
-                    allEdges.add(new Edge(lastProj[0], lastProj[1], proj[0], proj[1], type, lanes, region, attributes, layer));
+                    if (lastProj != null) { //register as a road edge
+                        allEdges.add(new Edge(lastProj[0], lastProj[1], proj[0], proj[1], type, lanes, region, attributes, layer));
+                    }
+
+                    lastProj = proj;
                 }
-
-                lastProj = proj;
             }
-        }
     }
 
     Geometry waterway(Element way, long id, Region region, Geometry last) {
@@ -561,7 +561,21 @@ public class OpenStreetMaps
         }
 
         public String toString() {
-            return "(minX: " + lowX + ", maxX: " + highX + ", minZ: "+highX+", maxZ: "+highZ+")";
+            return "x: [" + lowX + ", " + highX + "] || z: [" + highX + ", " + highZ + "]";
+        }
+
+        public String toStringPretty() {
+            int spacesX = Integer.toString(highX).length() - Integer.toString(lowX).length();
+            int spacesZ = Integer.toString(highZ).length() - Integer.toString(lowZ).length();
+            return "x: [" + getSpaces(spacesX) + lowX + ", " + highX + "] || z: [" + getSpaces(spacesZ) + lowZ + ", " + highZ + "]";
+        }
+
+        private String getSpaces(int n) {
+            String r = "";
+            for (int i = 0; i < n; ++i) {
+                r += " ";
+            }
+            return r;
         }
 
         public static RegionBounds getBounds(GeographicProjection projection, Region region) {
@@ -631,12 +645,9 @@ public class OpenStreetMaps
             return "(" + x + ", " + y + ")";
         }
 
-        /*
-        public static Coord toRegionCoord(GeographicProjection projection, BlockPos pos) {
-            Bounds b = Bounds.getBounds(projection, pos.getX(), pos.getZ());
-
+        public String toStringPretty() {
+            return "(" + (x >= 0 ? " " + x : x) + ", " + (y >= 0 ? " " + y : y) + ")";
         }
-         */
     }
 
     public static class Edge {

@@ -37,19 +37,19 @@ public class TerraTeleport extends CommandBase {
 			IChunkProvider cp = world.getChunkProvider();
 
 			if(!(cp instanceof CubeProviderServer)) {
-				throw new CommandException("terra121.error.notcc", new Object[0]);
+				throw new CommandException("terra121.error.notcc");
 			}
 
 			ICubeGenerator gen = ((CubeProviderServer)cp).getCubeGenerator();
 
 			if(!(gen instanceof EarthTerrainProcessor)) {
-				throw new CommandException("terra121.error.notterra", new Object[0]);
+				throw new CommandException("terra121.error.notterra");
 			}
 
 			EarthTerrainProcessor terrain = (EarthTerrainProcessor)gen;
 
 			if(args.length==0)
-				throw new WrongUsageException(getUsage(sender), new Object[0]);
+				throw new WrongUsageException(getUsage(sender));
 
 			String[] splitCoords = args[0].split(",");
 			String alt = null;
@@ -64,7 +64,7 @@ public class TerraTeleport extends CommandBase {
 			if(args.length>1&&args[1].endsWith(","))
 				args[1] = args[1].substring(0, args[1].length() - 1);
 			if(args.length!=2&&args.length!=3) {
-				throw new WrongUsageException(getUsage(sender), new Object[0]);
+				throw new WrongUsageException(getUsage(sender));
 			}
 
 			double lon, lat;
@@ -74,10 +74,10 @@ public class TerraTeleport extends CommandBase {
 				lon = Double.parseDouble(args[1]);
 				if(alt!=null) alt = Double.toString(Double.parseDouble(alt));
 			} catch(Exception e) {
-				throw new CommandException("terra121.error.numbers", new Object[0]);
+				throw new CommandException("terra121.error.numbers");
 			}
 
-			double proj[] = terrain.projection.fromGeo(lon, lat);
+			double proj[] = terrain.getProjection().fromGeo(lon, lat);
 
 			if(alt==null)
 				alt = String.valueOf(terrain.heights.estimateLocal(lon, lat)+1);

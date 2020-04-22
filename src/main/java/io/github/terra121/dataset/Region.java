@@ -143,8 +143,8 @@ public class Region {
 		if(center != null) return center;
 		OpenStreetMaps.RegionBounds bounds = getBounds();
 
-		int cx = (bounds.highX - bounds.lowX) / 2,
-			cz = (bounds.highZ - bounds.lowZ) / 2;
+		int cx = (bounds.highX + bounds.lowX) / 2,
+			cz = (bounds.highZ + bounds.lowZ) / 2;
 
 		center = new OpenStreetMaps.Coord(cx, cz);
 		return center;
@@ -159,9 +159,17 @@ public class Region {
 	@Override
 	public String toString() {
 		return "Region{" +
+				       coord.toStringPretty() +
+				", " + getBounds().toStringPretty() +
+				", " + getCenter() +
+				'}';
+		/*
+		*
+				return "Region{" +
 				"coord=" + coord +
 				", bounds=" + bounds +
 				", center=" + center +
 				'}';
+		* */
 	}
 }

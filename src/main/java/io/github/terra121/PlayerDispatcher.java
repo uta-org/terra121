@@ -2,7 +2,6 @@ package io.github.terra121;
 
 import com.google.common.collect.Sets;
 import io.github.opencubicchunks.cubicchunks.api.util.CubePos;
-import io.github.opencubicchunks.cubicchunks.api.world.ICube;
 import io.github.terra121.dataset.OpenStreetMaps;
 import io.github.terra121.dataset.Region;
 import io.github.terra121.projection.GeographicProjection;
@@ -114,6 +113,7 @@ public class PlayerDispatcher {
          */
         public void addRegion(int dx, int dz) {
             if (dx < -1 || dx > 1 || dz < -1 || dz > 1) throw new IllegalArgumentException();
+            System.out.println("Adding region ("+dx+", "+dz+") to update!");
             unprocessedRegions.add(Optional.of(getRegion(dx, dz)));
         }
 
@@ -222,8 +222,14 @@ public class PlayerDispatcher {
      */
     private static void prepareRegions(double pX, double pZ) {
         // Prepare region
-        Region region = createRegion(pX, pZ);
-        regions[1][1] = region;
+        Coord rc = getRegionCoord(pX, pZ);
+        Coord zerorc = regions[1][1] != null ? regions[1][1].coord : null;
+        System.out.println("rc: "+rc+" || zerorc: "+zerorc);
+
+        //noinspection ConstantConditions
+        Coord c = regions[1][1] == null ? new Coord(0, 0) : new Coord(zerorc.x, zerorc.y);
+        // createRegion(pX, pZ);
+        regions[1][1] = new Region(c, mapsObj.water);
 
         for (int x = -1; x <= 1; ++x) {
             for (int z = -1; z <= 1; ++z) {
@@ -256,13 +262,19 @@ public class PlayerDispatcher {
      */
     private static Region getRegion(int dx, int dz, int relx, int relz) {
         if (dx < -1 || dx > 1 || dz < -1 || dz > 1) throw new IllegalArgumentException();
+        /*
         Region r = regions[relx][relz];
         OpenStreetMaps.RegionBounds b = r.getBounds();
 
         int nx = dx == 0 ? r.getCenter().x : (dx > 0 ? b.highX + ICube.SIZE : b.lowX - ICube.SIZE);
         int nz = dz == 0 ? r.getCenter().y : (dz > 0 ? b.highZ + ICube.SIZE : b.lowZ - ICube.SIZE);
+         */
 
-        return createRegion(nx, nz);
+        Region r = regions[relx][relz];
+
+        return new Region(new Coord(dx + r.coord.x, dz + r.coord.y), mapsObj.water);
+        // return new Region(new Coord(dx + (relx - 1), dz + (relz - 1)), mapsObj.water);
+                // createRegion(nx, nz);
     }
 
     /**
@@ -272,10 +284,17 @@ public class PlayerDispatcher {
      * @param z a Minecraft world z position.
      * @return A reference for a region on that world position.
      */
+    /*
     private static Region createRegion(double x, double z) {
-        double[] c = projection.toGeo(x, z);
-        Coord coord = OpenStreetMaps.getRegion(c[0], c[1]);
+        // if (x < -1 || x > 1 || z < -1 || z > 1) throw new IllegalArgumentException();
+        Coord coord = getRegionCoord(x, z);
         return new Region(coord, mapsObj.water).forceComponents();
+    }
+    */
+
+    private static Coord getRegionCoord(double x, double z) {
+        double[] c = projection.toGeo(x, z);
+        return OpenStreetMaps.getRegion(c[0], c[1]);
     }
 
     /**

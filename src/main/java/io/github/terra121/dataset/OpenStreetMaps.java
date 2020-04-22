@@ -10,7 +10,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 import io.github.terra121.EarthTerrainProcessor;
-import io.github.terra121.PlayerRegionDispatcher;
+import io.github.terra121.events.RegionDownloadEvent;
+import net.minecraftforge.common.MinecraftForge;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -23,9 +24,10 @@ import io.github.terra121.TerraConfig;
 import io.github.terra121.TerraMod;
 import io.github.terra121.projection.GeographicProjection;
 
-public class OpenStreetMaps {
-
-    private static final double CHUNK_SIZE = 16;
+public class OpenStreetMaps
+{
+    private static final int CHUNK_SIZE = 16;
+    private static final double CHUNK_SIZE_D = 16.0;
     public static final double TILE_SIZE = 1 / 60.0;//250*(360.0/40075000.0);
     private static final double NOTHING = 0.01;
 
@@ -34,17 +36,16 @@ public class OpenStreetMaps {
     private String URL_A = ")";
     private static final String URL_B = ")%20tags%20qt;(._<;);out%20body%20qt;";
     private static final String URL_C = "is_in(";
-    private String URL_SUFFIX = ");area._[~\"natural|waterway\"~\"water|riverbank\"];out%20ids;";
+    @SuppressWarnings("FieldCanBeLocal")
+    private final String URL_SUFFIX = ");area._[~\"natural|waterway\"~\"water|riverbank\"];out%20ids;";
 
-    private HashMap<Coord, Set<Edge>> chunks;
+    private final Map<Coord, Set<Edge>> chunks;
     public Map<Coord, Region> regions;
     public Water water;
 
-    private int numcache = TerraConfig.osmCacheSize;
-
-    private ArrayList<Edge> allEdges;
-
-    private Gson gson;
+    private final int numcache = TerraConfig.osmCacheSize;
+    private final ArrayList<Edge> allEdges;
+    private final Gson gson;
 
     private GeographicProjection projection;
 
@@ -70,9 +71,9 @@ public class OpenStreetMaps {
 
     public OpenStreetMaps(GeographicProjection proj, boolean doRoad, boolean doWater, boolean doBuildings) {
         gson = new GsonBuilder().create();
-        chunks = new LinkedHashMap<Coord, Set<Edge>>();
+        chunks = Collections.synchronizedMap(new LinkedHashMap<Coord, Set<Edge>>());
         allEdges = new ArrayList<Edge>();
-        regions = Collections.synchronizedMap(new LinkedHashMap<Coord, Region>());
+        regions = Collections.synchronizedMap(new LinkedHashMap<>());
         projection = proj;
         try {
             water = new Water(this, 256);
@@ -91,44 +92,61 @@ public class OpenStreetMaps {
         URL_A += ";out%20geom(";
     }
 
-    public Coord getRegion(double lon, double lat) {
+    public static Coord getRegion(double lon, double lat) {
         return new Coord((int) Math.floor(lon / TILE_SIZE), (int) Math.floor(lat / TILE_SIZE));
     }
 
+    /**
+     * Ensure that all the regions that a chunk can contain was downloaded, for this, check the 4 corners of a chunk.
+     * @param x
+     * @param z
+     * @return
+     */
     public Set<Edge> chunkStructures(int x, int z) {
         Coord coord = new Coord(x, z);
 
-        if (regionCache(projection.toGeo(x * CHUNK_SIZE, z * CHUNK_SIZE)) == null)
+        if(chunks.containsKey(coord)) return chunks.get(coord);
+
+        if (regionCache(projection.toGeo(x * CHUNK_SIZE_D, z * CHUNK_SIZE_D), new Coord(x * CHUNK_SIZE, z * CHUNK_SIZE)) == null)
             return null;
 
-        if (regionCache(projection.toGeo((x + 1) * CHUNK_SIZE, z * CHUNK_SIZE)) == null)
+        if (regionCache(projection.toGeo((x + 1) * CHUNK_SIZE_D - 1, z * CHUNK_SIZE_D), new Coord((x + 1) * CHUNK_SIZE - 1, z * CHUNK_SIZE)) == null)
             return null;
 
-        if (regionCache(projection.toGeo((x + 1) * CHUNK_SIZE, (z + 1) * CHUNK_SIZE)) == null)
+        if (regionCache(projection.toGeo((x + 1) * CHUNK_SIZE_D - 1, (z + 1) * CHUNK_SIZE_D - 1), new Coord((x + 1) * CHUNK_SIZE - 1, (z + 1) * CHUNK_SIZE - 1)) == null)
             return null;
 
-        if (regionCache(projection.toGeo(x * CHUNK_SIZE, (z + 1) * CHUNK_SIZE)) == null)
+        if (regionCache(projection.toGeo(x * CHUNK_SIZE_D, (z + 1) * CHUNK_SIZE_D - 1), new Coord(x * CHUNK_SIZE, (z + 1) * CHUNK_SIZE - 1)) == null)
             return null;
 
         return chunks.get(coord);
     }
 
     public Region regionCache(double[] corner) {
+        return regionCache(corner, null);
+    }
+
+    public Region regionCache(double[] corner, Coord blockCoord) {
         //bound check
         if(!(corner[0]>=-180 && corner[0]<=180 && corner[1]>=-80 && corner[1]<=80)) {
             return null;
         }
 
+        // TODO: Do global events for each cube?
         Coord coord = getRegion(corner[0], corner[1]);
         Region region;
 
         if ((region = regions.get(coord)) == null) {
-            preregisterRegion(corner);
-            System.out.println("Region cache: "+coord);
+            // preregisterRegion(corner);
+
+            // TODO: cancel
+            MinecraftForge.EVENT_BUS.post(new RegionDownloadEvent.Pre(blockCoord));
+            // System.out.println("Region cache: "+coord);
 
             region = new Region(coord, water);
             int i;
-            for (i = 0; i < 5 && !regionDownload(region); i++) ;
+            //noinspection StatementWithEmptyBody
+            for (i = 0; i < 5 && !regionDownload(region); i++);
             regions.put(coord, region);
             if (regions.size() > numcache) {
                 //TODO: delete beter
@@ -142,41 +160,19 @@ public class OpenStreetMaps {
                 region.failedDownload = true;
                 TerraMod.LOGGER.error("OSM region" + region.coord.x + " " + region.coord.y + " failed to download several times, no structures will spawn");
 
-                removePreRegion(corner);
+                // removePreRegion(corner);
+                MinecraftForge.EVENT_BUS.post(new RegionDownloadEvent.Post(region, RegionDownloadEvent.FailureType.MAX_ATTEMPTS_EXCEEDED));
                 return null;
             }
 
-            registerRegion(corner);
+            // registerRegion(corner);
+            MinecraftForge.EVENT_BUS.post(new RegionDownloadEvent.Post(region));
         } else if (region.failedDownload) {
+            MinecraftForge.EVENT_BUS.post(new RegionDownloadEvent.Post(region, RegionDownloadEvent.FailureType.FAILED));
             return null; //don't return dummy regions
         }
 
         return region;
-    }
-
-
-    private void preregisterRegion(double[] reg) {
-        preregisterRegion((int)reg[0], (int)reg[1]);
-    }
-
-    private void removePreRegion(double[] reg) {
-        removePreRegion((int)reg[0], (int)reg[1]);
-    }
-
-    private void registerRegion(double[] reg) {
-        registerRegion((int)reg[0], (int)reg[1]);
-    }
-
-    private void preregisterRegion(int x, int z) {
-        PlayerRegionDispatcher.addPreregion(x, z);
-    }
-
-    private void removePreRegion(int x, int z) {
-        PlayerRegionDispatcher.removePreregion(x, z);
-    }
-
-    private void registerRegion(int x, int z) {
-        PlayerRegionDispatcher.addRegion(x, z);
     }
 
     private String getMD5(String str)
@@ -247,10 +243,10 @@ public class OpenStreetMaps {
         double[] ul = projection.fromGeo(X, Y + TILE_SIZE);
 
         //estimate bounds of region in terms of chunks
-        int lowX = (int) Math.floor(Math.min(Math.min(ll[0], ul[0]), Math.min(lr[0], ur[0])) / CHUNK_SIZE);
-        int highX = (int) Math.ceil(Math.max(Math.max(ll[0], ul[0]), Math.max(lr[0], ur[0])) / CHUNK_SIZE);
-        int lowZ = (int) Math.floor(Math.min(Math.min(ll[1], ul[1]), Math.min(lr[1], ur[1])) / CHUNK_SIZE);
-        int highZ = (int) Math.ceil(Math.max(Math.max(ll[1], ul[1]), Math.max(lr[1], ur[1])) / CHUNK_SIZE);
+        int lowX = (int) Math.floor(Math.min(Math.min(ll[0], ul[0]), Math.min(lr[0], ur[0])) / CHUNK_SIZE_D);
+        int highX = (int) Math.ceil(Math.max(Math.max(ll[0], ul[0]), Math.max(lr[0], ur[0])) / CHUNK_SIZE_D);
+        int lowZ = (int) Math.floor(Math.min(Math.min(ll[1], ul[1]), Math.min(lr[1], ur[1])) / CHUNK_SIZE_D);
+        int highZ = (int) Math.ceil(Math.max(Math.max(ll[1], ul[1]), Math.max(lr[1], ur[1])) / CHUNK_SIZE_D);
 
         for (Edge e : allEdges)
             relevantChunks(lowX, lowZ, highX, highZ, e);
@@ -490,8 +486,8 @@ public class OpenStreetMaps {
     }
 
     private void relevantChunks(int lowX, int lowZ, int highX, int highZ, Edge edge) {
-        Coord start = new Coord((int) Math.floor(edge.slon / CHUNK_SIZE), (int) Math.floor(edge.slat / CHUNK_SIZE));
-        Coord end = new Coord((int) Math.floor(edge.elon / CHUNK_SIZE), (int) Math.floor(edge.elat / CHUNK_SIZE));
+        Coord start = new Coord((int) Math.floor(edge.slon / CHUNK_SIZE_D), (int) Math.floor(edge.slat / CHUNK_SIZE_D));
+        Coord end = new Coord((int) Math.floor(edge.elon / CHUNK_SIZE_D), (int) Math.floor(edge.elat / CHUNK_SIZE_D));
 
         double startx = edge.slon;
         double endx = edge.elon;
@@ -506,9 +502,9 @@ public class OpenStreetMaps {
 
         highX = Math.min(highX, end.x + 1);
         for (int x = Math.max(lowX, start.x); x < highX; x++) {
-            double X = x * CHUNK_SIZE;
-            int from = (int) Math.floor((edge.slope * Math.max(X, startx) + edge.offset) / CHUNK_SIZE);
-            int to = (int) Math.floor((edge.slope * Math.min(X + CHUNK_SIZE, endx) + edge.offset) / CHUNK_SIZE);
+            double X = x * CHUNK_SIZE_D;
+            int from = (int) Math.floor((edge.slope * Math.max(X, startx) + edge.offset) / CHUNK_SIZE_D);
+            int to = (int) Math.floor((edge.slope * Math.min(X + CHUNK_SIZE_D, endx) + edge.offset) / CHUNK_SIZE_D);
 
             if (from > to) {
                 int tmp = from;
@@ -517,38 +513,22 @@ public class OpenStreetMaps {
             }
 
             for (int y = Math.max(from, lowZ); y <= to && y < highZ; y++) {
-                assoiateWithChunk(new Coord(x, y), edge);
+                associateWithChunk(new Coord(x, y), edge);
             }
         }
     }
 
-    private void assoiateWithChunk(Coord c, Edge edge) {
-        Set<Edge> list = chunks.get(c);
-        if (list == null) {
-            list = new HashSet<>();
-            chunks.put(c, list);
-        }
+    private void associateWithChunk(Coord c, Edge edge) {
+        Set<Edge> list = chunks.computeIfAbsent(c, k -> new HashSet<>());
         list.add(edge);
     }
 
     //TODO: this algorithm is untested and may have some memory leak issues and also strait up copies code from earlier
     private void removeRegion(Region delete) {
-        double X = delete.coord.x * TILE_SIZE;
-        double Y = delete.coord.y * TILE_SIZE;
+        RegionBounds b = RegionBounds.getBounds(projection, delete);
 
-        double[] ll = projection.fromGeo(X, Y);
-        double[] lr = projection.fromGeo(X + TILE_SIZE, Y);
-        double[] ur = projection.fromGeo(X + TILE_SIZE, Y + TILE_SIZE);
-        double[] ul = projection.fromGeo(X, Y + TILE_SIZE);
-
-        //estimate bounds of region in terms of chunks
-        int lowX = (int) Math.floor(Math.min(Math.min(ll[0], ul[0]), Math.min(lr[0], ur[0])) / CHUNK_SIZE);
-        int highX = (int) Math.ceil(Math.max(Math.max(ll[0], ul[0]), Math.max(lr[0], ur[0])) / CHUNK_SIZE);
-        int lowZ = (int) Math.floor(Math.min(Math.min(ll[1], ul[1]), Math.min(lr[1], ur[1])) / CHUNK_SIZE);
-        int highZ = (int) Math.ceil(Math.max(Math.max(ll[1], ul[1]), Math.max(lr[1], ur[1])) / CHUNK_SIZE);
-
-        for (int x = lowX; x < highX; x++) {
-            for (int z = lowZ; z < highZ; z++) {
+        for (int x = b.lowX; x < b.highX; x++) {
+            for (int z = b.lowZ; z < b.highZ; z++) {
                 Set<Edge> edges = chunks.get(new Coord(x, z));
                 if (edges != null) {
                     Iterator<Edge> it = edges.iterator();
@@ -560,6 +540,77 @@ public class OpenStreetMaps {
                         chunks.remove(new Coord(x, z));
                 }
             }
+        }
+    }
+
+    public static class RegionBounds {
+        public int lowX;
+        public int highX;
+        public int lowZ;
+        public int highZ;
+
+        public Coord coord;
+
+        public RegionBounds(int lowX, int highX, int lowZ, int highZ) {
+            this.lowX = lowX;
+            this.highX = highX;
+            this.lowZ = lowZ;
+            this.highZ = highZ;
+        }
+
+        public int hashCode() {
+            return (lowX * 79399) + (highX * 56789) + (lowZ * 98765) + (highZ * 100000);
+        }
+
+        public boolean equals(Object o) {
+            RegionBounds b = (RegionBounds) o;
+            return b.lowX == lowX && b.highX == highX && b.lowZ == lowZ && b.highZ == highZ;
+        }
+
+        public String toString() {
+            return "(minX: " + lowX + ", maxX: " + highX + ", minZ: "+highX+", maxZ: "+highZ+")";
+        }
+
+        public static RegionBounds getBounds(GeographicProjection projection, Region region) {
+            return getBounds(projection, region.coord.x, region.coord.y, true);
+        }
+
+        public static RegionBounds getBounds(GeographicProjection projection, double x, double y) {
+            double[] c = projection.toGeo(x, y);
+            return getBounds(projection, c);
+        }
+
+        public static RegionBounds getBounds(GeographicProjection projection, double[] corner) {
+            return getBounds(projection, corner[0], corner[1], false);
+        }
+
+        public static RegionBounds getBounds(GeographicProjection projection, Coord coord) {
+            return getBounds(projection, coord.x, coord.y, true);
+        }
+
+        private static RegionBounds getBounds(GeographicProjection projection, double x, double y, boolean isConverted) {
+            Coord regionCoord = getRegion(x, y);
+
+            double rx = isConverted ? x : regionCoord.x;
+            double ry = isConverted ? y : regionCoord.y;
+
+            double X = rx * TILE_SIZE;
+            double Y = ry * TILE_SIZE;
+
+            double[] ll = projection.fromGeo(X, Y);
+            double[] lr = projection.fromGeo(X + TILE_SIZE, Y);
+            double[] ur = projection.fromGeo(X + TILE_SIZE, Y + TILE_SIZE);
+            double[] ul = projection.fromGeo(X, Y + TILE_SIZE);
+
+            //estimate bounds of region in terms of chunks
+            int lowX = (int) Math.floor(Math.min(Math.min(ll[0], ul[0]), Math.min(lr[0], ur[0])) / CHUNK_SIZE_D);
+            int highX = (int) Math.ceil(Math.max(Math.max(ll[0], ul[0]), Math.max(lr[0], ur[0])) / CHUNK_SIZE_D);
+            int lowZ = (int) Math.floor(Math.min(Math.min(ll[1], ul[1]), Math.min(lr[1], ur[1])) / CHUNK_SIZE_D);
+            int highZ = (int) Math.ceil(Math.max(Math.max(ll[1], ul[1]), Math.max(lr[1], ur[1])) / CHUNK_SIZE_D);
+
+            RegionBounds b = new RegionBounds(lowX, highX, lowZ, highZ);
+            b.coord = regionCoord;
+            return b;
         }
     }
 
@@ -585,6 +636,13 @@ public class OpenStreetMaps {
         public String toString() {
             return "(" + x + ", " + y + ")";
         }
+
+        /*
+        public static Coord toRegionCoord(GeographicProjection projection, BlockPos pos) {
+            Bounds b = Bounds.getBounds(projection, pos.getX(), pos.getZ());
+
+        }
+         */
     }
 
     public static class Edge {

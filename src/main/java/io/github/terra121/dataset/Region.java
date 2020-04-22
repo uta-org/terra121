@@ -1,5 +1,8 @@
 package io.github.terra121.dataset;
 
+import io.github.terra121.EarthTerrainProcessor;
+import io.github.terra121.projection.GeographicProjection;
+
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -122,5 +125,9 @@ public class Region {
 	
 	public boolean equals(Object other) {
 		return (other instanceof Region) && coord.equals(((Region)other).coord);
+	}
+
+	public OpenStreetMaps.RegionBounds getBounds(GeographicProjection projection) {
+		return OpenStreetMaps.RegionBounds.getBounds(projection, coord);
 	}
 }

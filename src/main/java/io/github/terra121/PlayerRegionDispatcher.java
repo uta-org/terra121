@@ -32,6 +32,10 @@ public class PlayerRegionDispatcher {
     private static DispatcherRunnable runnable;
     private static OpenStreetMaps mapsObj;
 
+    /**
+     * Creates the dispatcher instance.
+     * @param maps The OSM object.
+     */
     public static void init(OpenStreetMaps maps) {
         if (runnable != null) return;
 
@@ -94,12 +98,22 @@ public class PlayerRegionDispatcher {
             return true;
         }
 
+        /**
+         * Adds a region based on the grid position.
+         * @param dx delta x (expected from -1 to 1)
+         * @param dz delta z (expected from -1 to 1)
+         */
         public void addRegion(int dx, int dz) {
             if (dx < -1 || dx > 1 || dz < -1 || dz > 1) throw new IllegalArgumentException();
             unprocessedRegions.add(Optional.of(getRegion(dx, dz)));
         }
 
-
+        /**
+         * Checks if the current region is being downloaded.
+         * @param dx delta x (expected from -1 to 1)
+         * @param dz delta z (expected from -1 to 1)
+         * @return true if the current region is being downloaded.
+         */
         public boolean isBusy(int dx, int dz) {
             if (dx < -1 || dx > 1 || dz < -1 || dz > 1) throw new IllegalArgumentException();
             return unprocessedRegions.contains(Optional.of(getRegion(dx, dz)));
@@ -109,10 +123,21 @@ public class PlayerRegionDispatcher {
             return regions[dx + 1][dz + 1];
         }
 
+        /**
+         * Checks if the current region was already downloaded.
+         * @param x custom x
+         * @param z custom z
+         * @return true if the region was already downloaded.
+         */
         public boolean isGenerated(int x, int z) {
             return isGenerated(new Coord(x, z));
         }
 
+        /**
+         * Checks if the current region was already downloaded.
+         * @param c expected value is the region center (the coord that is stored when a region is downloaded).
+         * @return true if the region was already downloaded.
+         */
         public boolean isGenerated(Coord c) {
             return generatedRegions.contains(c);
         }
@@ -131,9 +156,9 @@ public class PlayerRegionDispatcher {
 
     /**
      * Get called on every entity update.
-     * Checks if the player moved on a new chunk to pre-generate the current region (32x32).
+     * Checks if the player moved on a new chunk to pre-generate the current region grid.
      *
-     * @param e
+     * @param e The event.
      */
     @SubscribeEvent
     public static void onEntityUpdate(LivingUpdateEvent e) {
@@ -161,11 +186,6 @@ public class PlayerRegionDispatcher {
 
             // TODO: Work on Edge
 
-//            if (wasGridUpdated && !runnable.isGenerated(pos.getX(), pos.getZ()) && !runnable.isBusy(pos.getX(), pos.getZ())) {
-//                System.out.println("[" + pos + "] generating from moving! [" + uuid + "]");
-//                runnable.addRegion(pos.getX(), pos.getZ());
-//            }
-
             // If the grid was update then send the signal to the runnable in order to download the new regions
             if (wasGridUpdated) {
                 for (int x = -1; x <= 1; ++x) {
@@ -182,6 +202,11 @@ public class PlayerRegionDispatcher {
         }
     }
 
+    /**
+     * Prepares the regions.
+     * @param pX player x pos
+     * @param pZ player z pos
+     */
     private static void prepareRegions(double pX, double pZ) {
         // Prepare region
         Region region = createRegion(pX, pZ);
@@ -196,11 +221,27 @@ public class PlayerRegionDispatcher {
         }
     }
 
+    /**
+     * Gets the region neighbor (on loop call) using the center region (1,1) as relative.
+     * @param dx delta x (expected from -1 to 1)
+     * @param dz delta z (expected from -1 to 1)
+     * @return The region for that delta position on a loop call.
+     */
     private static Region getRegion(int dx, int dz) {
-        return getRegion(dx, dz, 0, 0);
+        if (dx < -1 || dx > 1 || dz < -1 || dz > 1) throw new IllegalArgumentException();
+        return getRegion(dx, dz, 1, 1);
     }
 
+    /**
+     * Gets the region neighbor (on loop call) using a custom relative position on the grid.
+     * @param dx delta x (expected from -1 to 1)
+     * @param dz delta z (expected from -1 to 1)
+     * @param relx relative x (expected from -1 to 1)
+     * @param relz relative x (expected from -1 to 1)
+     * @return A reference region created by the createRegion method.
+     */
     private static Region getRegion(int dx, int dz, int relx, int relz) {
+        if (dx < -1 || dx > 1 || dz < -1 || dz > 1) throw new IllegalArgumentException();
         Region r = regions[relx][relz];
         OpenStreetMaps.RegionBounds b = r.getBounds();
 
@@ -210,12 +251,25 @@ public class PlayerRegionDispatcher {
         return createRegion(nx, nz);
     }
 
+    /**
+     * Create a region reference from a position.
+     * @param x a Minecraft world x position.
+     * @param z a Minecraft world z position.
+     * @return A reference for a region on that world position.
+     */
     private static Region createRegion(double x, double z) {
         double[] c = projection.toGeo(x, z);
         Coord coord = OpenStreetMaps.getRegion(c[0], c[1]);
         return new Region(coord, mapsObj.water);
     }
 
+    /**
+     * Updates the region grid based on the player position.
+     * @param uuid The player uuid.
+     * @param pX The player x position.
+     * @param pZ The player z position.
+     * @return true if the grid was updated.
+     */
     private static boolean updateRegions(UUID uuid, double pX, double pZ) {
         Region localPlayerRegion = null;
         int xOffset = 0;
@@ -260,7 +314,7 @@ public class PlayerRegionDispatcher {
                 else if (newZ > 2)
                     newZ = 0;
 
-                newRegions[x][z] = getRegion(x - 1, z - 1, newX - 1, newZ - 1);
+                newRegions[x][z] = getRegion(x - 1, z - 1, newX, newZ);
             }
 
         regions = newRegions;
@@ -270,7 +324,7 @@ public class PlayerRegionDispatcher {
     /**
      * Trigger player logout in order to remove the latestPos key.
      *
-     * @param e
+     * @param e The event.
      */
     public static void onPlayerEvent(PlayerLoggedOutEvent e) {
         System.out.println("Removing uuid from disconnected player!");

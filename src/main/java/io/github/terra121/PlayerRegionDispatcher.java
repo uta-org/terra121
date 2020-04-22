@@ -10,6 +10,7 @@ import io.github.terra121.utils.SetBlockingQueue;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import org.spongepowered.asm.mixin.injection.invoke.arg.ArgumentIndexOutOfBoundsException;
 
 import java.util.*;
 
@@ -43,8 +44,8 @@ public class PlayerRegionDispatcher {
     }
 
     public static class DispatcherRunnable implements Runnable {
-        private final SetBlockingQueue<Optional<RegionModel>> unprocessedRegions = new SetBlockingQueue<>();
-        private final Set<Coord> generatedCubes = Sets.newConcurrentHashSet();
+        private final SetBlockingQueue<Optional<Region>> unprocessedRegions = new SetBlockingQueue<>();
+        private final Set<Coord> generatedRegions = Sets.newConcurrentHashSet();
 
         private OpenStreetMaps maps;
 
@@ -79,50 +80,41 @@ public class PlayerRegionDispatcher {
          */
         public boolean tick()
                 throws InterruptedException {
-            Optional<RegionModel> curRegion = unprocessedRegions.take();
+            Optional<Region> curRegion = unprocessedRegions.take();
             if (!curRegion.isPresent()) {
                 return false;
             }
 
-            RegionModel model = curRegion.get();
-            Region region = model.region;
+            Region region = curRegion.get();
             maps.regionDownload(region);
 
             unprocessedRegions.remove(curRegion);
-            generatedCubes.add(new Coord(model.cubeX, model.cubeZ));
+            generatedRegions.add(region.getCenter());
 
             return true;
         }
 
-        /**
-         * Add region to the current runnable.
-         *
-         * @param cubeX
-         * @param cubeZ
-         */
-        public void addRegion(int cubeX, int cubeZ) {
-            unprocessedRegions.add(Optional.of(getRegion(cubeX, cubeZ)));
+        public void addRegion(int dx, int dz) {
+            if (dx < -1 || dx > 1 || dz < -1 || dz > 1) throw new IllegalArgumentException();
+            unprocessedRegions.add(Optional.of(getRegion(dx, dz)));
         }
 
-        /**
-         * Check if
-         *
-         * @param cubeX
-         * @param cubeZ
-         * @return
-         */
-        public boolean isBusy(int cubeX, int cubeZ) {
-            return unprocessedRegions.contains(Optional.of(getRegion(cubeX, cubeZ)));
+
+        public boolean isBusy(int dx, int dz) {
+            if (dx < -1 || dx > 1 || dz < -1 || dz > 1) throw new IllegalArgumentException();
+            return unprocessedRegions.contains(Optional.of(getRegion(dx, dz)));
         }
 
-        private RegionModel getRegion(int cubeX, int cubeZ) {
-            double[] c = projection.toGeo(cubeX * ICube.SIZE_D, cubeZ * ICube.SIZE_D);
-            Coord coord = OpenStreetMaps.getRegion(c[0], c[1]);
-            return new RegionModel(cubeX, cubeZ, new Region(coord, maps.water));
+        private Region getRegion(int dx, int dz) {
+            return regions[dx + 1][dz + 1];
         }
 
-        public boolean isGenerated(int cubeX, int cubeZ) {
-            return generatedCubes.contains(new Coord(cubeX, cubeZ));
+        public boolean isGenerated(int x, int z) {
+            return isGenerated(new Coord(x, z));
+        }
+
+        public boolean isGenerated(Coord c) {
+            return generatedRegions.contains(c);
         }
 
         /**
@@ -135,21 +127,6 @@ public class PlayerRegionDispatcher {
                 TerraMod.LOGGER.error(e);
             }
         }
-
-        public static class RegionModel {
-            public int cubeX;
-            public int cubeZ;
-            public Region region;
-
-            private RegionModel() {
-            }
-
-            public RegionModel(int cubeX, int cubeZ, Region region) {
-                this.cubeX = cubeX;
-                this.cubeZ = cubeZ;
-                this.region = region;
-            }
-        }
     }
 
     /**
@@ -160,7 +137,7 @@ public class PlayerRegionDispatcher {
      */
     @SubscribeEvent
     public static void onEntityUpdate(LivingUpdateEvent e) {
-        // This method is cool, because the player won't move until the region is entire loaded todo: test
+        // This method is cool, because the player won't move until the region is entire loaded
         if (e.getEntity() instanceof EntityPlayer) {
             EntityPlayer player = (EntityPlayer) e.getEntity();
             UUID uuid = player.getUniqueID();
@@ -172,20 +149,33 @@ public class PlayerRegionDispatcher {
 
             CubePos pos = CubePos.fromBlockCoords((int) pX, (int) pY, (int) pZ);
             pos = new CubePos(pos.getX(), 0, pos.getZ());
-            
+
             if (regions[0][0] == null)
                 prepareRegions(pX, pZ);
 
+            boolean wasGridUpdated = false;
             if (pos != lPos && lPos != null) {
                 // Update region once per chunk changed
-                updateRegions(uuid, pX, pZ);
+                wasGridUpdated = updateRegions(uuid, pX, pZ);
             }
 
             // TODO: Work on Edge
 
-            if (pos != lPos && lPos != null && !runnable.isGenerated(pos.getX(), pos.getZ()) && !runnable.isBusy(pos.getX(), pos.getZ())) {
-                System.out.println("[" + pos + "] generating from moving! [" + uuid + "]");
-                runnable.addRegion(pos.getX(), pos.getZ());
+//            if (wasGridUpdated && !runnable.isGenerated(pos.getX(), pos.getZ()) && !runnable.isBusy(pos.getX(), pos.getZ())) {
+//                System.out.println("[" + pos + "] generating from moving! [" + uuid + "]");
+//                runnable.addRegion(pos.getX(), pos.getZ());
+//            }
+
+            // If the grid was update then send the signal to the runnable in order to download the new regions
+            if (wasGridUpdated) {
+                for (int x = -1; x <= 1; ++x) {
+                    for (int z = -1; z <= 1; ++z) {
+                        Region r = regions[x + 1][z + 1];
+                        if(!runnable.isGenerated(r.getCenter()) && !runnable.isBusy(x, z)) {
+                            runnable.addRegion(x, z);
+                        }
+                    }
+                }
             }
 
             latestPos.put(uuid, pos);
@@ -226,7 +216,7 @@ public class PlayerRegionDispatcher {
         return new Region(coord, mapsObj.water);
     }
 
-    private static void updateRegions(UUID uuid, double pX, double pZ) {
+    private static boolean updateRegions(UUID uuid, double pX, double pZ) {
         Region localPlayerRegion = null;
         int xOffset = 0;
         int yOffset = 0;
@@ -251,7 +241,7 @@ public class PlayerRegionDispatcher {
         // Check if we changed the region
         Region playerRegion = latestRegion.getOrDefault(uuid, null);
         if (localPlayerRegion == null || localPlayerRegion.is(playerRegion))
-            return;
+            return false;
 
         latestRegion.put(uuid, localPlayerRegion);
 
@@ -274,6 +264,7 @@ public class PlayerRegionDispatcher {
             }
 
         regions = newRegions;
+        return true;
     }
 
     /**

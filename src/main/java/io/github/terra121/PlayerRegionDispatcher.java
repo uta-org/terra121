@@ -26,10 +26,6 @@ import static net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerLoggedOu
 @Mod.EventBusSubscriber
 public class PlayerRegionDispatcher {
     private static final Map<UUID, CubePos> latestPos = new HashMap<>();
-    //private static final Set<Coord> processedSet = ConcurrentHashMap.newKeySet();
-    //private static final Set<Coord> preprocessedSet = ConcurrentHashMap.newKeySet();
-
-    // private static final Map<Coord, Optional<Set<Edge>>> mappedEdges = new ConcurrentHashMap<>();
 
     private static DispatcherRunnable runnable;
 
@@ -187,90 +183,6 @@ public class PlayerRegionDispatcher {
         System.out.println("Removing uuid from disconnected player!");
         latestPos.remove(e.player.getUniqueID());
     }
-
-/*
-    public static Set<Edge> getEdge(int cubeX, int cubeZ) {
-        if (isBusy(cubeX, cubeZ)) {
-            System.out.println("isBusy");
-
-            // Block sync side until dispatcher has results
-            // TODO: attempts
-            try {
-                do {
-                    sleep(50);
-                } while (isBusy(cubeX, cubeZ));
-            } catch (InterruptedException e) {
-                TerraMod.LOGGER.error("Error occurred while waiting sync.", e);
-                return null;
-            }
-        }
-
-        System.out.println("Getting async generated region!");
-        Optional<Set<Edge>> val = mappedEdges.get(toCoord(cubeX, cubeZ));
-        return val.orElse(null);
-    }
-
-    public static boolean isGenerated(int cubeX, int cubeZ) {
-        return processedSet.contains(toCoord(cubeX, cubeZ));
-    }
-
-    public static boolean isBusy(int cubeX, int cubeZ) {
-        return preprocessedSet.contains(toCoord(cubeX, cubeZ));
-    }
-
-    private static Coord toCoord(int x, int z) {
-        return new Coord(x, z);
-    }
-
-    public static void addPreregion(int cubeX, int cubeZ) {
-        if(preprocessedSet.add(toCoord(cubeX, cubeZ))) {
-            debug("Added", "pre", cubeX, cubeZ);
-        }
-    }
-
-    public static void addRegion(int cubeX, int cubeZ) {
-        if(processedSet.add(toCoord(cubeX, cubeZ))) {
-            debug("Added", "", cubeX, cubeZ);
-        }
-    }
-
-    public static void removePreregion(int cubeX, int cubeZ) {
-        if(preprocessedSet.remove(toCoord(cubeX, cubeZ))) {
-            debug("Removed", "pre", cubeX, cubeZ);
-        }
-    }
-
-    public static void removeRegion(int cubeX, int cubeZ) {
-        if(processedSet.remove(toCoord(cubeX, cubeZ))) {
-            debug("Removed", "", cubeX, cubeZ);
-        }
-    }
-
-    private static void debug(String action, String regionType, int cubeX, int cubeZ) {
-        System.out.println(action+" "+regionType+"region ("+cubeX+", "+cubeZ+")!");
-    }
-
-    @SubscribeEvent
-    public static void lookForEvents(RegionDownloadEvent e) {
-        if(e instanceof RegionDownloadEvent.Pre) {
-            RegionDownloadEvent.Pre pre = (RegionDownloadEvent.Pre)e;
-            Coord blockCoord = e.getBlockCoord();
-            if(blockCoord == null) return; // Not called from road generator
-            addPreregion(blockCoord.x / 16, blockCoord.y / 16);
-        } else if(e instanceof RegionDownloadEvent.Post) {
-            RegionDownloadEvent.Post post = (RegionDownloadEvent.Post)e;
-            Coord blockCoord = e.getBlockCoord();
-            if(blockCoord == null) return; // Not called from road generator
-            if(post.isError()) {
-                if(post.getFailureType() == RegionDownloadEvent.FailureType.FAILED) return;
-                removePreregion(blockCoord.x / 16, blockCoord.y / 16);
-            } else {
-                removePreregion(blockCoord.x / 16, blockCoord.y / 16);
-                addRegion(blockCoord.x / 16, blockCoord.y / 16);
-            }
-        }
-    }
-    */
 
     public static GeographicProjection projection;
 }

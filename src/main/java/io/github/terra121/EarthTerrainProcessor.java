@@ -238,23 +238,9 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
         return -spawnSize < cubeX && cubeX < spawnSize && -spawnSize < cubeZ && cubeZ < spawnSize;
     }
 
-    private boolean isGenerated(int cubeX, int cubeZ) {
-        return PlayerRegionDispatcher.isGenerated(cubeX, cubeZ);
-        // return PlayerRegionDispatcher.isGenerated(OpenStreetMaps.RegionBounds.getBounds(projection, cubeX, cubeZ));
-    }
-
-    private Set<OpenStreetMaps.Edge> getEdge(int cubeX, int cubeZ) {
-        return PlayerRegionDispatcher.getEdge(cubeX, cubeZ);
-        // return PlayerRegionDispatcher.getEdge(new CubePos(cubeX, 0, cubeZ));
-    }
-
     private void doRoads(int cubeX, int cubeY, int cubeZ, CubePrimer primer, double[][] heightarr, boolean surface) {
         if((doRoads || doBuildings || cfg.settings.osmwater) && surface) {
-            boolean isSync = !isGenerated(cubeX, cubeZ);
-            // System.out.println("["+(isSync ? "Sync" : "Async")+" mode] Do roads!");
-            Set<OpenStreetMaps.Edge> edges = isSync
-                    ? osm.chunkStructures(cubeX, cubeZ)
-                    : getEdge(cubeX, cubeZ);
+            Set<OpenStreetMaps.Edge> edges = osm.chunkStructures(cubeX, cubeZ);
 
             if(edges != null) {
 

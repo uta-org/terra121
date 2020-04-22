@@ -4,20 +4,20 @@ import io.github.terra121.dataset.OpenStreetMaps;
 import io.github.terra121.dataset.Region;
 import net.minecraftforge.fml.common.eventhandler.Event;
 
-public class RegionDownloadEvent extends Event {
+public class RegionCacheEvent extends Event {
     public enum FailureType { FAILED, MAX_ATTEMPTS_EXCEEDED }
     private FailureType failureType;
     private boolean error;
     private Region region;
     protected OpenStreetMaps.Coord blockCoord;
 
-    private RegionDownloadEvent() {}
+    private RegionCacheEvent() {}
 
-    public RegionDownloadEvent(Region region) {
+    public RegionCacheEvent(Region region) {
         this.region = region;
     }
 
-    public RegionDownloadEvent(Region region, FailureType failureType) {
+    public RegionCacheEvent(Region region, FailureType failureType) {
         this(region);
         this.error = true;
         this.failureType = failureType;
@@ -45,15 +45,11 @@ public class RegionDownloadEvent extends Event {
     }
     */
 
-    public static class Pre extends RegionDownloadEvent {
-        private Pre() {}
+    public static class Pre extends RegionCacheEvent {
 
-        public Pre(OpenStreetMaps.Coord blockCoord) {
-            super.blockCoord = blockCoord;
-        }
     }
 
-    public static class Post extends RegionDownloadEvent {
+    public static class Post extends RegionCacheEvent {
         private Post() {}
 
         public Post(Region region) {

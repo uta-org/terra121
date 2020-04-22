@@ -11,7 +11,7 @@ import java.util.*;
 
 import io.github.terra121.EarthTerrainProcessor;
 import io.github.terra121.PlayerRegionDispatcher;
-import io.github.terra121.events.RegionDownloadEvent;
+import io.github.terra121.events.RegionCacheEvent;
 import net.minecraftforge.common.MinecraftForge;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -110,26 +110,22 @@ public class OpenStreetMaps
 
         if(chunks.containsKey(coord)) return chunks.get(coord);
 
-        if (regionCache(projection.toGeo(x * CHUNK_SIZE_D, z * CHUNK_SIZE_D), new Coord(x * CHUNK_SIZE, z * CHUNK_SIZE)) == null)
+        if (regionCache(projection.toGeo(x * CHUNK_SIZE_D, z * CHUNK_SIZE_D)) == null)
             return null;
 
-        if (regionCache(projection.toGeo((x + 1) * CHUNK_SIZE_D - 1, z * CHUNK_SIZE_D), new Coord((x + 1) * CHUNK_SIZE - 1, z * CHUNK_SIZE)) == null)
+        if (regionCache(projection.toGeo((x + 1) * CHUNK_SIZE_D - 1, z * CHUNK_SIZE_D)) == null)
             return null;
 
-        if (regionCache(projection.toGeo((x + 1) * CHUNK_SIZE_D - 1, (z + 1) * CHUNK_SIZE_D - 1), new Coord((x + 1) * CHUNK_SIZE - 1, (z + 1) * CHUNK_SIZE - 1)) == null)
+        if (regionCache(projection.toGeo((x + 1) * CHUNK_SIZE_D - 1, (z + 1) * CHUNK_SIZE_D - 1)) == null)
             return null;
 
-        if (regionCache(projection.toGeo(x * CHUNK_SIZE_D, (z + 1) * CHUNK_SIZE_D - 1), new Coord(x * CHUNK_SIZE, (z + 1) * CHUNK_SIZE - 1)) == null)
+        if (regionCache(projection.toGeo(x * CHUNK_SIZE_D, (z + 1) * CHUNK_SIZE_D - 1)) == null)
             return null;
 
         return chunks.get(coord);
     }
 
     public Region regionCache(double[] corner) {
-        return regionCache(corner, null);
-    }
-
-    public Region regionCache(double[] corner, Coord blockCoord) {
         //bound check
         if(!(corner[0]>=-180 && corner[0]<=180 && corner[1]>=-80 && corner[1]<=80)) {
             return null;
@@ -140,11 +136,8 @@ public class OpenStreetMaps
         Region region;
 
         if ((region = regions.get(coord)) == null) {
-            // preregisterRegion(corner);
-
-            // TODO: cancel
-            MinecraftForge.EVENT_BUS.post(new RegionDownloadEvent.Pre(blockCoord));
-            // System.out.println("Region cache: "+coord);
+            if(!MinecraftForge.EVENT_BUS.post(new RegionCacheEvent.Pre()))
+                return null;
 
             region = new Region(coord, water);
             int i;
@@ -163,15 +156,13 @@ public class OpenStreetMaps
                 region.failedDownload = true;
                 TerraMod.LOGGER.error("OSM region" + region.coord.x + " " + region.coord.y + " failed to download several times, no structures will spawn");
 
-                // removePreRegion(corner);
-                MinecraftForge.EVENT_BUS.post(new RegionDownloadEvent.Post(region, RegionDownloadEvent.FailureType.MAX_ATTEMPTS_EXCEEDED));
+                MinecraftForge.EVENT_BUS.post(new RegionCacheEvent.Post(region, RegionCacheEvent.FailureType.MAX_ATTEMPTS_EXCEEDED));
                 return null;
             }
 
-            // registerRegion(corner);
-            MinecraftForge.EVENT_BUS.post(new RegionDownloadEvent.Post(region));
+            MinecraftForge.EVENT_BUS.post(new RegionCacheEvent.Post(region));
         } else if (region.failedDownload) {
-            MinecraftForge.EVENT_BUS.post(new RegionDownloadEvent.Post(region, RegionDownloadEvent.FailureType.FAILED));
+            MinecraftForge.EVENT_BUS.post(new RegionCacheEvent.Post(region, RegionCacheEvent.FailureType.FAILED));
             return null; //don't return dummy regions
         }
 

@@ -8,7 +8,7 @@ public class RandomAccessRunlength<E> {
     int size;
 
     public RandomAccessRunlength() {
-        data = new ArrayList<Run>();
+        data = new ArrayList<>();
         size = 0;
     }
 

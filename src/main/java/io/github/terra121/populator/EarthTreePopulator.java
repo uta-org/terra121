@@ -26,7 +26,7 @@ public class EarthTreePopulator implements ICubicPopulator, Comparable<Object> {
 	
 	public EarthTreePopulator(GeographicProjection proj) {
 		trees = new Trees();
-		extraSurface = new HashSet<Block>();
+		extraSurface = new HashSet<>();
 		extraSurface.add(Blocks.CLAY);
 		extraSurface.add(Blocks.RED_SANDSTONE);
 		extraSurface.add(Blocks.SANDSTONE);

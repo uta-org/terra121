@@ -13,7 +13,7 @@ public class WaterGround {
 	private int height;
 	
 	public WaterGround(InputStream input) throws IOException {
-		data = new RandomAccessRunlength<Byte>();
+		data = new RandomAccessRunlength<>();
 		DataInputStream in = new DataInputStream(input);
 
 		//save some memory by tying the same bytes to the same object (idk if java does this already) //TODO: static share with Soil.java

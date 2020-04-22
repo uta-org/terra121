@@ -14,7 +14,7 @@ class BiomeMap {
     public BiomeMap() {
         //I don't like this but BiomeMap was always gonna be slow anyways
         biomes = new EarthBiomeProvider(Biomes.MUSHROOM_ISLAND);
-        map = new HashMap<Biome, Integer>();
+        map = new HashMap<>();
 
         //Full credit to Amidst for these colors
         map.put(Biomes.OCEAN, 0xFF000070);

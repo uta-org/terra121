@@ -14,7 +14,7 @@ public class GeographicProjection {
 	public static Map<String, GeographicProjection> projections;
 	
 	static {
-		projections = new HashMap<String, GeographicProjection>();
+		projections = new HashMap<>();
 		projections.put("web_mercator", new CenteredMapsProjection());
 		projections.put("equirectangular", new GeographicProjection());
 		projections.put("sinusoidal", new SinusoidalProjection());

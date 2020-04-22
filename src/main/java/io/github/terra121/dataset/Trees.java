@@ -48,7 +48,7 @@ public class Trees extends TiledDataset {
                 
                 ByteSourceInputStream by = new ByteSourceInputStream(is, "shits and giggles");
                 TiffImageParser p = new TiffImageParser();
-                BufferedImage img = p.getBufferedImage(by, new HashMap<String,Object>());
+                BufferedImage img = p.getBufferedImage(by, new HashMap<>());
                 is.close();
                 is = null;
                 

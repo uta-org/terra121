@@ -18,7 +18,7 @@ public class Soil {
 
         //save in a random access run lenth to save ram at the slight cost of efficiency
         //this works because one soil type tends to stretch more than 4km
-        data = new RandomAccessRunlength<Byte>();
+        data = new RandomAccessRunlength<>();
 
         BufferedInputStream is = new BufferedInputStream(input);
 

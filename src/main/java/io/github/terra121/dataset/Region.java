@@ -87,7 +87,7 @@ public class Region {
 		indexes = new short[water.hres][];
 		states = new byte[water.hres][];
 		
-		southLine.run(water.hres, ground, (status,x) -> addComp(lines[x].compileBreaks(new HashSet<Long>(status), water.hres),x));
+		southLine.run(water.hres, ground, (status,x) -> addComp(lines[x].compileBreaks(new HashSet<>(status), water.hres),x));
 		
 		//we are done with these resources, now that they are compiled
 		lines = null;

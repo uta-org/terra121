@@ -12,7 +12,7 @@ public class LandLine {
 	public TreeMap<Double, Long> breaks;
 	
 	public LandLine() {
-		 breaks = new TreeMap<Double, Long>();
+		 breaks = new TreeMap<>();
 	}
 	
 	public void add(double pos, long type) {

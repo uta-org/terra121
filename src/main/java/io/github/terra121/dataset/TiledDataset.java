@@ -27,7 +27,7 @@ public abstract class TiledDataset {
     public boolean smooth;
 
     public TiledDataset(int width, int height, int numcache, GeographicProjection proj, double projScaleX, double projScaleY, boolean smooth) {
-        cache = new LinkedHashMap<Coord, int[]>();
+        cache = new LinkedHashMap<>();
         this.numcache = numcache;
         this.width = width;
         this.height = height;

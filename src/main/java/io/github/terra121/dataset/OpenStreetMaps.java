@@ -47,14 +47,14 @@ public class OpenStreetMaps
     private final ArrayList<Edge> allEdges;
     private final Gson gson;
 
-    private GeographicProjection projection;
+    private final GeographicProjection projection;
 
-    public static enum Type {
+    public enum Type {
         IGNORE, ROAD, MINOR, SIDE, MAIN, INTERCHANGE, LIMITEDACCESS, FREEWAY, STREAM, RIVER, BUILDING, RAIL
         // ranges from minor to freeway for roads, use road if not known
     }
 
-    public static enum Attributes {
+    public enum Attributes {
         ISBRIDGE, ISTUNNEL, NONE
     }
 
@@ -71,8 +71,8 @@ public class OpenStreetMaps
 
     public OpenStreetMaps(GeographicProjection proj, boolean doRoad, boolean doWater, boolean doBuildings) {
         gson = new GsonBuilder().create();
-        chunks = Collections.synchronizedMap(new LinkedHashMap<Coord, Set<Edge>>());
-        allEdges = new ArrayList<Edge>();
+        chunks = Collections.synchronizedMap(new LinkedHashMap<>());
+        allEdges = new ArrayList<>();
         regions = Collections.synchronizedMap(new LinkedHashMap<>());
         projection = proj;
         try {
@@ -251,9 +251,9 @@ public class OpenStreetMaps
     private void doGson(String str, Region region) {
         Data data = gson.fromJson(str, Data.class);
 
-        Map<Long, Element> allWays = new HashMap<Long, Element>();
-        Set<Element> unusedWays = new HashSet<Element>();
-        Set<Long> ground = new HashSet<Long>();
+        Map<Long, Element> allWays = new HashMap<>();
+        Set<Element> unusedWays = new HashSet<>();
+        Set<Long> ground = new HashSet<>();
 
         for (Element elem : data.elements) {
             Attributes attributes = Attributes.NONE;

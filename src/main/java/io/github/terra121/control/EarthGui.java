@@ -72,7 +72,7 @@ public class EarthGui extends GuiScreen implements DynamicOptions.Handler {
 	
 	private <E> DynamicOptions.CycleButtonElement<E> cycleButton(int id, String field, E[] list, Function<E, String> tostring) {
 		try {
-			return new DynamicOptions.CycleButtonElement<E>(id, list, EarthGeneratorSettings.JsonSettings.class.getField(field), cfg.settings, tostring);
+			return new DynamicOptions.CycleButtonElement<>(id, list, EarthGeneratorSettings.JsonSettings.class.getField(field), cfg.settings, tostring);
 		} catch (NoSuchFieldException | SecurityException e) {
 			TerraMod.LOGGER.error("This should never happen, but find field reflection error");
 			e.printStackTrace();

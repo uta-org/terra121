@@ -76,7 +76,7 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
         heights = new Heights(13, cfg.settings.smoothblend, cfg.settings.osmwater?osm.water:null);
         depths = new Heights(10, cfg.settings.osmwater?osm.water:null); //below sea level only generates a level 10, this shouldn't lag too bad cause a zoom 10 tile is frickin massive (64x zoom 13)
         
-        unnaturals = new HashSet<Block>();
+        unnaturals = new HashSet<>();
         unnaturals.add(Blocks.STONEBRICK);
         unnaturals.add(Blocks.CONCRETE);
         unnaturals.add(Blocks.BRICK_BLOCK);
@@ -91,14 +91,14 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
         //InitCubicStructureGeneratorEvent caveEvent = new InitCubicStructureGeneratorEvent(EventType.CAVE, new CubicCaveGenerator());
         caveGenerator = new CubicCaveGenerator();
         
-        biomePopulators = new HashMap<Biome, ICubicPopulator>();
+        biomePopulators = new HashMap<>();
         
         for (Biome biome : ForgeRegistries.BIOMES) {
             CubicBiome cubicBiome = CubicBiome.getCubic(biome);
             biomePopulators.put(biome, cubicBiome.getDecorator(cubiccfg));
         }
 
-        biomeBlockReplacers = new HashMap<Biome, List<IBiomeBlockReplacer>>();
+        biomeBlockReplacers = new HashMap<>();
         BiomeBlockReplacerConfig conf = cubiccfg.replacerConfig;
         CliffReplacer cliffs = new CliffReplacer();
         

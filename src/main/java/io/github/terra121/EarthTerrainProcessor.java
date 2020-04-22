@@ -17,9 +17,9 @@ import io.github.opencubicchunks.cubicchunks.cubicgen.common.biome.IBiomeBlockRe
 import io.github.opencubicchunks.cubicchunks.cubicgen.common.biome.IBiomeBlockReplacerProvider;
 import io.github.opencubicchunks.cubicchunks.cubicgen.customcubic.CustomGeneratorSettings;
 import io.github.opencubicchunks.cubicchunks.cubicgen.customcubic.structure.CubicCaveGenerator;
-import io.github.terra121.dataset.HeightmapModel;
 import io.github.terra121.dataset.Heights;
 import io.github.terra121.dataset.OpenStreetMaps;
+import io.github.terra121.events.CubeHeightmapEvent;
 import io.github.terra121.populator.CliffReplacer;
 import io.github.terra121.populator.EarthTreePopulator;
 import io.github.terra121.populator.RoadGenerator;
@@ -120,14 +120,12 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
     public CubePrimer generateCube(int cubeX, int cubeY, int cubeZ) {
         CubePrimer primer = new CubePrimer();
 
-        HeightmapModel model = doSurface(cubeX, cubeY, cubeZ);
-        double[][] map = model.getHeightmap();
-        boolean surface = model.getSurface();
+        Object[] model = doSurface(cubeX, cubeY, cubeZ);
+        double[][] map = (double[][]) model[0];
+        boolean surface = (boolean) model[1];
 
-        if(TerraConfig.useHeightmapModels) {
-            CubePos pos = new CubePos(cubeX, cubeY, cubeZ);
-            HeightmapModel.add(pos, model);
-    	}
+        if(!MinecraftForge.EVENT_BUS.post(new CubeHeightmapEvent(new CubePos(cubeX, cubeY, cubeZ), map, surface)))
+            return null;
 
     	//fill in the world
         for(int x=0; x<16; x++) {
@@ -205,8 +203,9 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
         return primer;
     }
 
-    private HeightmapModel doSurface(int cubeX, int cubeY, int cubeZ) {
-        HeightmapModel model = new HeightmapModel();
+    private Object[] doSurface(int cubeX, int cubeY, int cubeZ) {
+        // TODO
+        Object[] model = new Object[2];
         boolean surface = false;
         double[][] map = new double[16][16];
 
@@ -223,8 +222,8 @@ public class EarthTerrainProcessor extends BasicCubeGenerator
             }
         }
 
-        model.setHeightmap(map);
-        model.setSurface(surface);
+        model[0] = map;
+        model[1] = surface;
 
         return model;
     }

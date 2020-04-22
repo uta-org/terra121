@@ -1,6 +1,5 @@
 package io.github.terra121.events;
 
-import io.github.terra121.dataset.OpenStreetMaps;
 import io.github.terra121.dataset.Region;
 import net.minecraftforge.fml.common.eventhandler.Event;
 
@@ -9,7 +8,6 @@ public class RegionCacheEvent extends Event {
     private FailureType failureType;
     private boolean error;
     private Region region;
-    protected OpenStreetMaps.Coord blockCoord;
 
     private RegionCacheEvent() {}
 
@@ -34,16 +32,6 @@ public class RegionCacheEvent extends Event {
     public boolean isError() {
         return error;
     }
-
-    public OpenStreetMaps.Coord getBlockCoord() {
-        return blockCoord;
-    }
-
-    /*
-    public void setCorner(double[] corner) {
-        this.corner = corner;
-    }
-    */
 
     public static class Pre extends RegionCacheEvent {
 

@@ -53,10 +53,6 @@ public class TerraConfig {
 	@Comment({"Road cache is enabled? This feature can be used on other mods."})
 	public static boolean useRoadCache = false;
 
-	@Name("use_heightmap_model")
-	@Comment({"Store generated heightmaps from OSM? This feature can be used on other mods."})
-	public static boolean useHeightmapModels = false;
-
 	@Name("spawn_size")
 	@Comment({"Default spawn size."})
 	public static int spawnSize = 5;

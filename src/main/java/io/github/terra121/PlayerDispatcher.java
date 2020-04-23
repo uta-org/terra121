@@ -225,12 +225,7 @@ public class PlayerDispatcher {
     private static void prepareRegions(double pX, double pZ) {
         // Prepare region
         Coord rc = getRegionCoord(pX, pZ); // todo: test
-        //Coord zerorc = regions[1][1] != null ? regions[1][1].coord : null;
-        //System.out.println("rc: "+rc+" || zerorc: "+zerorc);
 
-        //noinspection ConstantConditions
-        // Coord c = regions[1][1] == null ? new Coord(zerorc.x, zerorc.y) : new Coord(rc.x, rc.y);
-        // createRegion(pX, pZ);
         regions[1][1] = new Region(rc, mapsObj.water);
 
         Region[][] newRegion = new Region[3][3];
@@ -295,20 +290,11 @@ public class PlayerDispatcher {
     }
 
     /**
-     * Create a region reference from a position.
-     *
-     * @param x a Minecraft world x position.
-     * @param z a Minecraft world z position.
-     * @return A reference for a region on that world position.
+     * Get the region coordinate for a given position.
+     * @param x x position.
+     * @param z z position.
+     * @return The region coordinate.
      */
-    /*
-    private static Region createRegion(double x, double z) {
-        // if (x < -1 || x > 1 || z < -1 || z > 1) throw new IllegalArgumentException();
-        Coord coord = getRegionCoord(x, z);
-        return new Region(coord, mapsObj.water).forceComponents();
-    }
-    */
-
     private static Coord getRegionCoord(double x, double z) {
         double[] c = projection.toGeo(x, z);
         int ix = 0;

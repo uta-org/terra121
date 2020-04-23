@@ -18,6 +18,7 @@ import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
@@ -162,8 +163,8 @@ public class TerraCommand extends CommandBase {
                     for (int z = 0; z < 3; z++) {
                         int rx = x - 1;
                         int rz = z - 1;
-                        // OpenStreetMaps.Coord _c = new OpenStreetMaps.Coord(rx, rz);
-                        sb.append(regions[x][z].toString());
+                        OpenStreetMaps.Coord _c = new OpenStreetMaps.Coord(rx, rz);
+                        sb.append(_c).append("=").append(regions[x][z].toString());
                         sb.append("\n");
                     }
 
@@ -184,11 +185,16 @@ public class TerraCommand extends CommandBase {
                         throw new CommandException("Invalid x, z provided values should be between -1 and 1.");
 
                     Region[][] regions = PlayerDispatcher.getRegions();
-                    OpenStreetMaps.Coord center = regions[x][z].getCenter();
+                    Region region = regions[x + 1][z + 1];
+                    OpenStreetMaps.Coord center = region.getCenter();
 
-                    double[] proj = projection.toGeo(x, z);
-                    double Y = heights.estimateLocal(proj[0], proj[1]);
-                    player.attemptTeleport(center.x, Y, center.y);
+                    double[] proj = projection.toGeo(center.x, center.y);
+                    double Y = Math.max(heights.estimateLocal(proj[0], proj[1]), 2); // Using math.max() in order to avoid water
+                    BlockPos pos = new BlockPos(center.x, Y, center.y);
+                    if(player.attemptTeleport(pos.getX(), pos.getY(), pos.getZ()))
+                        result = "Teleported player '"+args[1]+"' to region ("+x+", "+z+") in position ("+pos+")!";
+                    else
+                        result = "Teleport to "+pos+" failed!";
                 } else {
                     if (tryX == null)
                         throw new CommandException("Not specified x.");

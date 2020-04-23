@@ -41,4 +41,8 @@ public class ScaleProjection extends ProjectionTransform {
 	public double metersPerUnit() {
 		return input.metersPerUnit()/Math.sqrt((scaleX*scaleX + scaleY*scaleY)/2); //TODO: better transform
 	}
+
+	public boolean isInverted() {
+		return input instanceof InvertedOrientation;
+	}
 }

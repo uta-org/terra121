@@ -12,6 +12,7 @@ import java.util.*;
 import io.github.terra121.EarthTerrainProcessor;
 import io.github.terra121.PlayerDispatcher;
 import io.github.terra121.events.RegionCacheEvent;
+import io.github.terra121.projection.ScaleProjection;
 import net.minecraftforge.common.MinecraftForge;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -578,8 +579,9 @@ public class OpenStreetMaps {
             return r;
         }
 
+        // Used at removing regions
         public static RegionBounds getBounds(GeographicProjection projection, Region region) {
-            return getBounds(projection, region.coord.x, region.coord.y, true);
+            return getBounds(projection, region.coord.x, region.coord.y, true, true, true);
         }
 
         public static RegionBounds getBounds(GeographicProjection projection, double x, double y) {
@@ -588,14 +590,14 @@ public class OpenStreetMaps {
         }
 
         public static RegionBounds getBounds(GeographicProjection projection, double[] corner) {
-            return getBounds(projection, corner[0], corner[1], false);
+            return getBounds(projection, corner[0], corner[1], false, false, false);
         }
 
         public static RegionBounds getBounds(GeographicProjection projection, Coord coord) {
-            return getBounds(projection, coord.x, coord.y, true);
+            return getBounds(projection, coord.x, coord.y, true, false, false);
         }
 
-        private static RegionBounds getBounds(GeographicProjection projection, double x, double y, boolean isConverted) {
+        private static RegionBounds getBounds(GeographicProjection projection, double x, double y, boolean isConverted, boolean useChunksSize, boolean keepInverted) {
             Coord regionCoord = getRegion(x, y);
 
             double rx = isConverted ? x : regionCoord.x;
@@ -609,11 +611,37 @@ public class OpenStreetMaps {
             double[] ur = projection.fromGeo(X + TILE_SIZE, Y + TILE_SIZE);
             double[] ul = projection.fromGeo(X, Y + TILE_SIZE);
 
-            //estimate bounds of region in terms of chunks
-            int lowX = (int) Math.floor(Math.min(Math.min(ll[0], ul[0]), Math.min(lr[0], ur[0])) / CHUNK_SIZE);
-            int highX = (int) Math.ceil(Math.max(Math.max(ll[0], ul[0]), Math.max(lr[0], ur[0])) / CHUNK_SIZE);
-            int lowZ = (int) Math.floor(Math.min(Math.min(ll[1], ul[1]), Math.min(lr[1], ur[1])) / CHUNK_SIZE);
-            int highZ = (int) Math.ceil(Math.max(Math.max(ll[1], ul[1]), Math.max(lr[1], ur[1])) / CHUNK_SIZE);
+            int ix = 0;
+            int iz = 1;
+
+            if(projection instanceof ScaleProjection && ((ScaleProjection)projection).isInverted() && !keepInverted) {
+                ix = 1;
+                iz = 0;
+            }
+
+            //estimate bounds of region in terms of blocks
+            double _lowX = Math.min(Math.min(ll[ix], ul[ix]), Math.min(lr[ix], ur[ix]));
+            double _highX = Math.max(Math.max(ll[ix], ul[ix]), Math.max(lr[ix], ur[ix]));
+            double _lowZ = Math.min(Math.min(ll[iz], ul[iz]), Math.min(lr[iz], ur[iz]));
+            double _highZ = Math.max(Math.max(ll[iz], ul[iz]), Math.max(lr[iz], ur[iz]));
+
+            int lowX;
+            int highX;
+            int lowZ;
+            int highZ;
+
+            // then, get the bounds in terms of chunks if needed
+            if(useChunksSize) {
+                lowX = (int) Math.floor(_lowX / CHUNK_SIZE);
+                highX = (int) Math.ceil(_highX / CHUNK_SIZE);
+                lowZ = (int) Math.ceil(_lowZ / CHUNK_SIZE);
+                highZ = (int) Math.ceil(_highZ / CHUNK_SIZE);
+            } else {
+                lowX = (int)_lowX;
+                highX = (int)_highX;
+                lowZ = (int)_lowZ;
+                highZ = (int)_highZ;
+            }
 
             // Ensure bounds
             RegionBounds b = new RegionBounds(Math.min(lowX, highX), Math.max(highX, lowX), Math.min(lowZ, highZ), Math.max(highZ, lowZ));
@@ -647,6 +675,10 @@ public class OpenStreetMaps {
 
         public String toStringPretty() {
             return "(" + (x >= 0 ? " " + x : x) + ", " + (y >= 0 ? " " + y : y) + ")";
+        }
+
+        public static Coord getZero() {
+            return new Coord(0, 0);
         }
     }
 

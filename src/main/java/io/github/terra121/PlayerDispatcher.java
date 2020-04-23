@@ -5,6 +5,7 @@ import io.github.opencubicchunks.cubicchunks.api.util.CubePos;
 import io.github.terra121.dataset.OpenStreetMaps;
 import io.github.terra121.dataset.Region;
 import io.github.terra121.projection.GeographicProjection;
+import io.github.terra121.projection.ScaleProjection;
 import io.github.terra121.utils.SetBlockingQueue;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.fml.common.Mod;
@@ -12,6 +13,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.function.Function;
 
 import static io.github.terra121.dataset.OpenStreetMaps.Coord;
 import static net.minecraftforge.event.entity.living.LivingEvent.LivingUpdateEvent;
@@ -222,21 +224,26 @@ public class PlayerDispatcher {
      */
     private static void prepareRegions(double pX, double pZ) {
         // Prepare region
-        Coord rc = getRegionCoord(pX, pZ);
-        Coord zerorc = regions[1][1] != null ? regions[1][1].coord : null;
-        System.out.println("rc: "+rc+" || zerorc: "+zerorc);
+        Coord rc = getRegionCoord(pX, pZ); // todo: test
+        //Coord zerorc = regions[1][1] != null ? regions[1][1].coord : null;
+        //System.out.println("rc: "+rc+" || zerorc: "+zerorc);
 
         //noinspection ConstantConditions
-        Coord c = regions[1][1] == null ? new Coord(0, 0) : new Coord(zerorc.x, zerorc.y);
+        // Coord c = regions[1][1] == null ? new Coord(zerorc.x, zerorc.y) : new Coord(rc.x, rc.y);
         // createRegion(pX, pZ);
-        regions[1][1] = new Region(c, mapsObj.water);
+        regions[1][1] = new Region(rc, mapsObj.water);
 
+        Region[][] newRegion = new Region[3][3];
         for (int x = -1; x <= 1; ++x) {
             for (int z = -1; z <= 1; ++z) {
-                if (x == 0 && z == 0) continue;
-                regions[x + 1][z + 1] = getRegion(x, z);
+                if (x == 0 && z == 0) {
+                    newRegion[1][1] = regions[1][1];
+                    continue;
+                }
+                newRegion[x + 1][z + 1] = getRegion(x, z);
             }
         }
+        regions = newRegion;
     }
 
     /**
@@ -248,33 +255,43 @@ public class PlayerDispatcher {
      */
     private static Region getRegion(int dx, int dz) {
         if (dx < -1 || dx > 1 || dz < -1 || dz > 1) throw new IllegalArgumentException();
-        return getRegion(dx, dz, 1, 1);
+        boolean isNull = regions[1][1] == null;
+        Region cr = regions[1][1];
+
+        int ox = isNull ? 0 : cr.coord.x;
+        int oz = isNull ? 0 : cr.coord.y;
+
+        return new Region(new Coord(ox + dx, oz + dz), mapsObj.water);
     }
 
     /**
      * Gets the region neighbor (on loop call) using a custom relative position on the grid.
      *
-     * @param dx   delta x (expected from -1 to 1)
-     * @param dz   delta z (expected from -1 to 1)
-     * @param relx relative x (expected from -1 to 1)
-     * @param relz relative x (expected from -1 to 1)
+     * @param dx   delta x (expected from 0 to 2)
+     * @param dz   delta z (expected from 0 to 2)
+     * @param relx relative x (expected from -1 to 3)
+     * @param relz relative x (expected from -1 to 3)
      * @return A reference region created by the createRegion method.
      */
     private static Region getRegion(int dx, int dz, int relx, int relz) {
-        if (dx < -1 || dx > 1 || dz < -1 || dz > 1) throw new IllegalArgumentException();
-        /*
-        Region r = regions[relx][relz];
-        OpenStreetMaps.RegionBounds b = r.getBounds();
+        if (dx < 0 || dx > 2 || dz < 0 || dz > 2) throw new IllegalArgumentException();
 
-        int nx = dx == 0 ? r.getCenter().x : (dx > 0 ? b.highX + ICube.SIZE : b.lowX - ICube.SIZE);
-        int nz = dz == 0 ? r.getCenter().y : (dz > 0 ? b.highZ + ICube.SIZE : b.lowZ - ICube.SIZE);
-         */
+        int rx = dx + relx; // -1 to 3
+        int rz = dz + relz;
 
-        Region r = regions[relx][relz];
+        int cx = relx + 1;
+        int cz = relz + 1;
 
-        return new Region(new Coord(dx + r.coord.x, dz + r.coord.y), mapsObj.water);
-        // return new Region(new Coord(dx + (relx - 1), dz + (relz - 1)), mapsObj.water);
-                // createRegion(nx, nz);
+        // center region for the new position
+        Region cr = regions[cx][cz];
+
+        try {
+            return regions[rx][rz];
+        } catch(Exception ignored) {
+            // cases -1 or 3
+            // we create new regions for outofbounds relative to the new center region
+            return new Region(new Coord(cr.coord.x + rx, cr.coord.y + rz), mapsObj.water);
+        }
     }
 
     /**
@@ -294,7 +311,15 @@ public class PlayerDispatcher {
 
     private static Coord getRegionCoord(double x, double z) {
         double[] c = projection.toGeo(x, z);
-        return OpenStreetMaps.getRegion(c[0], c[1]);
+        int ix = 0;
+        int iz = 1;
+
+        if(projection instanceof ScaleProjection && ((ScaleProjection)projection).isInverted()) {
+            ix = 1;
+            iz = 0;
+        }
+
+        return OpenStreetMaps.getRegion(c[ix], c[iz]);
     }
 
     /**
@@ -308,7 +333,7 @@ public class PlayerDispatcher {
     private static boolean updateRegions(UUID uuid, double pX, double pZ) {
         Region localPlayerRegion = null;
         int xOffset = 0;
-        int yOffset = 0;
+        int zOffset = 0;
         for (int x = 0; x < 3; x++) {
             for (int z = 0; z < 3; z++) {
                 // Check if we are on a new region
@@ -318,8 +343,11 @@ public class PlayerDispatcher {
                         regions[x][z].getBounds().lowZ,
                         regions[x][z].getBounds().highZ)) {
                     localPlayerRegion = regions[x][z];
-                    xOffset = 1 - x;
-                    yOffset = 1 - z;
+                    //xOffset = 1 - x; // converts 0, 1, 2 to -1, 0, 1 (inverse)
+                    //zOffset = 1 - z;
+
+                    xOffset = x - 1; // converts 0, 1, 2 to -1, 0, 1
+                    zOffset = z - 1;
                     break;
                 }
             }
@@ -328,35 +356,24 @@ public class PlayerDispatcher {
                 break;
         }
 
-        // We are still on the center regions
+        // We are still on the center region
         if (localPlayerRegion != null && localPlayerRegion.is(regions[1][1]))
             return false;
 
         // Check if we changed the region
         Region playerRegion = latestRegion.getOrDefault(uuid, null);
-        if (localPlayerRegion == null || localPlayerRegion.is(playerRegion))
+        if (localPlayerRegion != null && localPlayerRegion.is(playerRegion))
             return false;
-
-        latestRegion.put(uuid, localPlayerRegion);
 
         //noinspection ConstantConditions
         if (inBounds(pX, pZ, getGlobalRegionBounds())) {
+            // todo: check this
+            System.out.println((playerRegion == null ? Coord.getZero() : playerRegion.coord)+" --> "+localPlayerRegion.coord);
             // Re-create the entire grid
             Region[][] newRegions = new Region[3][3];
             for (int x = 0; x < 3; x++)
                 for (int z = 0; z < 3; z++) {
-                    int newX = x + xOffset;
-                    if (newX < 0)
-                        newX = 2;
-                    else if (newX > 2)
-                        newX = 0;
-                    int newZ = z + yOffset;
-                    if (newZ < 0)
-                        newZ = 2;
-                    else if (newZ > 2)
-                        newZ = 0;
-
-                    newRegions[x][z] = getRegion(x - 1, z - 1, newX, newZ);
+                    newRegions[x][z] = getRegion(x, z, xOffset, zOffset);
                 }
 
             regions = newRegions;
@@ -364,6 +381,9 @@ public class PlayerDispatcher {
             // TP was done
             prepareRegions(pX, pZ);
         }
+
+        latestRegion.put(uuid, regions[1][1]);
+
         return true;
     }
 
@@ -406,10 +426,35 @@ public class PlayerDispatcher {
     private static OpenStreetMaps.RegionBounds getGlobalRegionBounds() {
         if (regions[0][0] == null) return null;
         return new OpenStreetMaps.RegionBounds(
-                regions[0][0].getBounds().lowX,
-                regions[2][0].getBounds().highX,
-                regions[0][0].getBounds().lowZ,
-                regions[0][2].getBounds().highZ);
+                findValue(false, c -> regions[c.x][c.y].getBounds().lowX),
+                findValue(true, c -> regions[c.x][c.y].getBounds().highX),
+                findValue(false, c -> regions[c.x][c.y].getBounds().lowZ),
+                findValue(true, c -> regions[c.x][c.y].getBounds().highZ));
+    }
+
+    /**
+     * Finds the greatest or minimum value for a given function.
+     * @param lookingForBig
+     * @param func
+     * @return
+     */
+    private static int findValue(boolean lookingForBig, Function<Coord, Integer> func) {
+        int r = lookingForBig ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+
+        for (int x = 0; x < 3; x++)
+            for (int z = 0; z < 3; z++) {
+                int v = func.apply(new Coord(x, z));
+
+                if(lookingForBig) {
+                    if(v > r)
+                        r = v;
+                } else {
+                    if(v < r)
+                        r = v;
+                }
+            }
+
+        return r;
     }
 
     /**

@@ -198,7 +198,7 @@ public class EarthTerrainProcessor extends BasicCubeGenerator implements IEarthP
 	            		for (int y = start; y < 16 && y < Y - minblock; y++) primer.setBlockState(x, y, z, Blocks.WATER.getDefaultState());
 	            	}
             	}
-            	else for (int y = (int)Math.max(Y - minblock,0); y < 16 && y < 0 - minblock; y++) primer.setBlockState(x, y, z, Blocks.WATER.getDefaultState());
+            	else for (int y = (int)Math.max(Y - minblock,0); y < 16 && y < -minblock; y++) primer.setBlockState(x, y, z, Blocks.WATER.getDefaultState());
             }
         }
         
@@ -275,7 +275,7 @@ public class EarthTerrainProcessor extends BasicCubeGenerator implements IEarthP
 
                     if(ex >= 16)ex = 16-1;
 
-                    for(int x=sx>0?sx:0; x<=ex; x++) {
+                    for(int x = Math.max(sx, 0); x<=ex; x++) {
                         double realx = (x+cubeX*16);
                         if(realx < start)
                             realx = start;
@@ -295,7 +295,7 @@ public class EarthTerrainProcessor extends BasicCubeGenerator implements IEarthP
 
                         if(to >= 16)to = 16-1;
 
-                        for(int z=from>0?from:0; z<=to; z++) {
+                        for(int z = Math.max(from, 0); z<=to; z++) {
                             int y = (int)Math.floor(heightarr[x][z]) - Coords.cubeToMinBlock(cubeY);
 
                             if(y >= 0 && y < 16) {

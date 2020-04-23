@@ -202,13 +202,14 @@ public class OpenStreetMaps {
 
             Files.createDirectories(filepath.getParent());
 
-            TerraMod.LOGGER.info(url);
-
             String json;
             File file = filepath.toFile();
             if (file.exists()) {
+                TerraMod.LOGGER.info(filepath);
                 json = new String(Files.readAllBytes(filepath), StandardCharsets.UTF_8);
             } else {
+                TerraMod.LOGGER.info(url);
+
                 OkHttpClient client = new OkHttpClient();
                 Request request = new Request.Builder()
                         .url(url)
@@ -372,7 +373,7 @@ public class OpenStreetMaps {
 
                             lanes = Byte.parseByte(slanes);
 
-                        } catch (NumberFormatException e) {
+                        } catch (NumberFormatException ignored) {
 
                         } //default to 2, if bad format
                     }

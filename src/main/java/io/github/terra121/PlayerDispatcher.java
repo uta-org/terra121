@@ -264,12 +264,13 @@ public class PlayerDispatcher {
      *
      * @param dx   delta x (expected from 0 to 2)
      * @param dz   delta z (expected from 0 to 2)
-     * @param relx relative x (expected from -1 to 3)
-     * @param relz relative x (expected from -1 to 3)
+     * @param relx relative x (expected from -1 to 1)
+     * @param relz relative x (expected from -1 to 1)
      * @return A reference region created by the createRegion method.
      */
     private static Region getRegion(int dx, int dz, int relx, int relz) {
         if (dx < 0 || dx > 2 || dz < 0 || dz > 2) throw new IllegalArgumentException();
+        if (relx < -1 || relx > 1 || relz < -1 || relz > 1) throw new IllegalArgumentException();
 
         int rx = dx + relx; // -1 to 3
         int rz = dz + relz;
@@ -354,7 +355,7 @@ public class PlayerDispatcher {
         //noinspection ConstantConditions
         if (inBounds(pX, pZ, getGlobalRegionBounds())) {
             // todo: check this
-            System.out.println((playerRegion == null ? Coord.getZero() : playerRegion.coord)+" --> "+localPlayerRegion.coord);
+            System.out.println((playerRegion == null ? "n"+Coord.getZero() : playerRegion.coord)+" --> "+(localPlayerRegion == null ? "n"+Coord.getZero() : localPlayerRegion.coord));
             // Re-create the entire grid
             Region[][] newRegions = new Region[3][3];
             for (int x = 0; x < 3; x++)

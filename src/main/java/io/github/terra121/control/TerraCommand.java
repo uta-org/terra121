@@ -191,10 +191,9 @@ public class TerraCommand extends CommandBase {
                     double[] proj = projection.toGeo(center.x, center.y);
                     double Y = Math.max(heights.estimateLocal(proj[0], proj[1]), 2); // Using math.max() in order to avoid water
                     BlockPos pos = new BlockPos(center.x, Y, center.y);
-                    if(player.attemptTeleport(pos.getX(), pos.getY(), pos.getZ()))
-                        result = "Teleported player '"+args[1]+"' to region ("+x+", "+z+") in position ("+pos+")!";
-                    else
-                        result = "Teleport to "+pos+" failed!";
+
+                    player.setPositionAndUpdate(pos.getX(), pos.getY(), pos.getZ());
+                    result = "Teleported player '"+args[1]+"' to region ("+x+", "+z+") in position ("+pos+")!";
                 } else {
                     if (tryX == null)
                         throw new CommandException("Not specified x.");

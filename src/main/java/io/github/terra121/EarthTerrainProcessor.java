@@ -129,7 +129,7 @@ public class EarthTerrainProcessor extends BasicCubeGenerator implements IEarthP
         double[][] map = (double[][]) model[0];
         boolean surface = (boolean) model[1];
 
-        if(MinecraftForge.EVENT_BUS.post(new CubeHeightmapEvent(new CubePos(cubeX, cubeY, cubeZ), map, surface)))
+        if(MinecraftForge.EVENT_BUS.post(new CubeHeightmapEvent(new CubePos(cubeX, cubeY, cubeZ), primer, map, surface)))
             return null; // cancelled
 
         // MinecraftForge.EVENT_BUS.post(new CubeHeightmapEvent(new CubePos(cubeX, cubeY, cubeZ), map, surface));
